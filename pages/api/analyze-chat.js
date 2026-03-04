@@ -15,10 +15,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
+    // Filter out unimportant requirements
+    const importantKeywords = ['mage', 'moq', 'price', 'cost', 'prototype', 'sample', 'size', 'dimension', 'box', 'material', 'color', 'payment', 'lead time', 'quantity', 'specification']
+    const filteredRequirements = masterRequirements.filter(r => {
+      const label = r.label.toLowerCase()
+      // Keep if matches important keywords or explicitly marked
+      return importantKeywords.some(k => label.includes(k)) || r.label.includes('MOQ') || r.label.includes('Images')
+    })
+
     const prompt = `You are a sourcing expert auditor for import/export operations.
 
 MASTER REQUIREMENTS for this supplier:
-${masterRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n')}
+${filteredRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n')}
 
 SUPPLIER CHAT TEXT:
 ${chatText}
@@ -26,8 +34,11 @@ ${chatText}
 Analyze the chat and:
 1. For each master requirement, determine if it's: "confirmed" (green), "conflict" (red), or "missing" (grey)
 2. Extract any additional supplier notes that aren't related to master requirements
-3. IMPORTANT: Only generate a question about GREY items (missing info). Do NOT ask about RED items again (they already said no).
-4. Generate BOTH Chinese AND English versions of the question
+3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items (missing info). Do NOT ask about RED items again (they already said no). The question should cover multiple aspects in one message to maximize efficiency.
+4. If there are no GREY items left, indicate "All key requirements confirmed"
+5. Generate BOTH Chinese AND English versions of the question
+
+Example format for multi-part question in Chinese: "请问贵司在${MOQ}件起订量下的价格是多少，样品/小批量价格如何，起样成本及交期各多少？"
 
 Respond in JSON format:
 {
@@ -35,8 +46,8 @@ Respond in JSON format:
     { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note" }
   ],
   "supplier_notes": "any extra info about the supplier",
-  "supplier_notes_english": "English translation of supplier notes",
-  "next_question_chinese": "professional question in Chinese (ONLY about GREY/unanswered items, NOT RED items)",
+  "supplier_notes_english": "English translation of supplier notes (if different from above)",
+  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions)",
   "next_question_english": "English translation of the question"
 }`
 

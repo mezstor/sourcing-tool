@@ -7,6 +7,7 @@ export default function Home() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(false)
   const [projectName, setProjectName] = useState('')
+  const [moq, setMoq] = useState('')
   const [specifications, setSpecifications] = useState('')
   const [userId] = useState('demo-user') // In production, use auth
 
@@ -58,7 +59,10 @@ export default function Home() {
   }
 
   const handleCreateProject = async (useAI = false) => {
-    if (!projectName.trim()) return
+    if (!projectName.trim() || !moq.trim()) {
+      alert('Project name and MOQ are required!')
+      return
+    }
 
     setLoading(true)
     try {
@@ -90,20 +94,33 @@ export default function Home() {
         .from('projects')
         .insert([{
           user_id: userId,
-          name: projectName
+          name: projectName,
+          moq: parseInt(moq)
         }])
         .select()
 
       const newProject = projectData[0]
 
-      // Create master requirements from specifications
-      if (specsList.length > 0) {
-        const masterRequirements = specsList.map((spec) => ({
+      // Always start with Images requirement, then add MOQ info, then user specs
+      const masterRequirements = [
+        {
+          project_id: newProject.id,
+          label: 'Images/Product Photos',
+          status: 'missing'
+        },
+        {
+          project_id: newProject.id,
+          label: `MOQ: ${moq} units`,
+          status: 'confirmed'
+        },
+        ...specsList.map((spec) => ({
           project_id: newProject.id,
           label: spec,
           status: 'missing'
         }))
+      ]
 
+      if (masterRequirements.length > 0) {
         await supabase
           .from('master_requirements')
           .insert(masterRequirements)
@@ -111,6 +128,7 @@ export default function Home() {
 
       setProjects([...projects, newProject])
       setProjectName('')
+      setMoq('')
       setSpecifications('')
     } catch (error) {
       console.error('Error creating project:', error)
@@ -145,6 +163,17 @@ export default function Home() {
               placeholder="e.g., Black Jiggler with logo"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+
+            {/* MOQ Input - MANDATORY */}
+            <input
+              type="number"
+              value={moq}
+              onChange={(e) => setMoq(e.target.value)}
+              placeholder="Minimum Order Quantity (e.g., 250)"
+              min="1"
+              className="w-full px-4 py-3 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold"
+            />
+            <p className="text-sm text-red-600 -mt-3">⚠️ Verplicht - AI moet MOQ kennen voor correcte vragen</p>
 
             {/* Specifications Input */}
             <textarea
