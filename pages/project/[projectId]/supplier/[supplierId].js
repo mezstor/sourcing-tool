@@ -18,12 +18,14 @@ export default function SupplierAuditPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    console.log('Router ready:', router.isReady, 'supplierId:', supplierId, 'projectId:', projectId)
-    if (router.isReady && supplierId && projectId) {
-      console.log('Fetching data...')
+    console.log('Component mounted. Router query:', router.query)
+    if (router.query.projectId && router.query.supplierId) {
+      console.log('Router query available, fetching data...')
       fetchData()
+    } else {
+      console.log('Waiting for router query...')
     }
-  }, [router.isReady, supplierId, projectId])
+  }, [router.query])
 
   const fetchData = async () => {
     try {

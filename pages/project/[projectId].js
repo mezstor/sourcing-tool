@@ -18,10 +18,12 @@ export default function ProjectPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (router.isReady && id) {
+    console.log('Project page - router query:', router.query)
+    if (router.query.projectId) {
+      console.log('Project ID available, fetching...')
       fetchProject()
     }
-  }, [router.isReady, id])
+  }, [router.query])
 
   const fetchProject = async () => {
     try {
