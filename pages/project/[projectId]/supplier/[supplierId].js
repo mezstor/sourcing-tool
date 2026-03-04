@@ -15,37 +15,47 @@ export default function SupplierAuditPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (supplierId && projectId) {
+    if (router.isReady && supplierId && projectId) {
       fetchData()
     }
-  }, [supplierId, projectId])
+  }, [router.isReady, supplierId, projectId])
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const { data: supplierData } = await supabase
+      setError(null)
+
+      const { data: supplierData, error: supplierError } = await supabase
         .from('suppliers')
         .select('*')
         .eq('id', supplierId)
         .single()
 
-      const { data: chatsData } = await supabase
+      if (supplierError) throw supplierError
+
+      const { data: chatsData, error: chatsError } = await supabase
         .from('chats')
         .select('*')
         .eq('supplier_id', supplierId)
 
-      const { data: requirementsData } = await supabase
+      if (chatsError) throw chatsError
+
+      const { data: requirementsData, error: requirementsError } = await supabase
         .from('master_requirements')
         .select('*')
         .eq('project_id', projectId)
 
+      if (requirementsError) throw requirementsError
+
       setSupplier(supplierData)
       setChats(chatsData || [])
       setRequirements(requirementsData || [])
-    } catch (error) {
-      console.error('Error fetching data:', error)
+    } catch (err) {
+      console.error('Error fetching data:', err)
+      setError(err.message || 'Failed to load supplier data')
     } finally {
       setLoading(false)
     }
@@ -93,8 +103,49 @@ export default function SupplierAuditPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8 flex items-center gap-4">
+            <Link href={`/project/${projectId}`}>
+              <a className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                <ArrowLeft size={20} /> Back
+              </a>
+            </Link>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Supplier</h2>
+            <p className="text-gray-700 mb-4">{error}</p>
+            <button
+              onClick={() => router.reload()}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!supplier) {
-    return <div>Supplier not found</div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8 flex items-center gap-4">
+            <Link href={`/project/${projectId}`}>
+              <a className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
+                <ArrowLeft size={20} /> Back
+              </a>
+            </Link>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <p className="text-gray-600">Supplier not found</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -18,10 +18,10 @@ export default function ProjectPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (id) {
+    if (router.isReady && id) {
       fetchProject()
     }
-  }, [id])
+  }, [router.isReady, id])
 
   const fetchProject = async () => {
     try {
