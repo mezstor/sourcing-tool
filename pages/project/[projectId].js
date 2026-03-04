@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../../lib/supabase'
-import { Plus, ArrowLeft, Loader } from 'lucide-react'
+import { Plus, ArrowLeft, Loader, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import SupplierMatrix from '../../components/SupplierMatrix'
 
@@ -49,6 +49,23 @@ export default function ProjectPage() {
       console.error('Error fetching project:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteSupplier = async (supplierId) => {
+    if (!confirm('Weet je zeker? Dit delete supplier + alle chats.')) return
+
+    try {
+      // Delete all chats for this supplier
+      await supabase.from('chats').delete().eq('supplier_id', supplierId)
+
+      // Delete supplier
+      await supabase.from('suppliers').delete().eq('id', supplierId)
+
+      setSuppliers(suppliers.filter(s => s.id !== supplierId))
+    } catch (error) {
+      console.error('Error deleting supplier:', error)
+      alert('Error deleting supplier')
     }
   }
 
@@ -198,6 +215,7 @@ export default function ProjectPage() {
               suppliers={suppliers}
               requirements={requirements}
               projectId={projectId}
+              onDeleteSupplier={handleDeleteSupplier}
             />
           </div>
         </div>
