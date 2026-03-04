@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Trash2 } from 'lucide-react'
 
-export default function SupplierMatrix({ suppliers, requirements, projectId }) {
+export default function SupplierMatrix({ suppliers, requirements, projectId, onDeleteSupplier }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed':
@@ -66,12 +66,23 @@ export default function SupplierMatrix({ suppliers, requirements, projectId }) {
                     </td>
                   ))}
                   <td className="text-center py-4 px-4">
-                    <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
-                      <a className="text-indigo-600 hover:text-indigo-700 flex items-center justify-center gap-1">
-                        <span className="text-xs">Audit</span>
-                        <ChevronRight size={16} />
-                      </a>
-                    </Link>
+                    <div className="flex items-center justify-center gap-2">
+                      <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
+                        <a className="text-indigo-600 hover:text-indigo-700 flex items-center justify-center gap-1">
+                          <span className="text-xs">Audit</span>
+                          <ChevronRight size={16} />
+                        </a>
+                      </Link>
+                      {onDeleteSupplier && (
+                        <button
+                          onClick={() => onDeleteSupplier(supplier.id)}
+                          className="text-red-500 hover:text-red-700"
+                          title="Delete supplier"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
