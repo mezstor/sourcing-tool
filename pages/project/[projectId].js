@@ -7,7 +7,7 @@ import SupplierMatrix from '../../components/SupplierMatrix'
 
 export default function ProjectPage() {
   const router = useRouter()
-  const { id } = router.query
+  const { projectId } = router.query
   const [project, setProject] = useState(null)
   const [suppliers, setSuppliers] = useState([])
   const [requirements, setRequirements] = useState([])
@@ -19,11 +19,11 @@ export default function ProjectPage() {
 
   useEffect(() => {
     console.log('Project page - router query:', router.query)
-    if (router.query.projectId) {
-      console.log('Project ID available, fetching...')
+    if (projectId) {
+      console.log('Project ID available:', projectId)
       fetchProject()
     }
-  }, [router.query])
+  }, [projectId])
 
   const fetchProject = async () => {
     try {
@@ -31,18 +31,18 @@ export default function ProjectPage() {
       const { data: projectData } = await supabase
         .from('projects')
         .select('*')
-        .eq('id', id)
+        .eq('id', projectId)
         .single()
 
       const { data: suppliersData } = await supabase
         .from('suppliers')
         .select('*')
-        .eq('project_id', id)
+        .eq('project_id', projectId)
 
       const { data: requirementsData } = await supabase
         .from('master_requirements')
         .select('*')
-        .eq('project_id', id)
+        .eq('project_id', projectId)
 
       setProject(projectData)
       setSuppliers(suppliersData || [])
@@ -63,7 +63,7 @@ export default function ProjectPage() {
       const { data } = await supabase
         .from('suppliers')
         .insert([{
-          project_id: id,
+          project_id: projectId,
           nickname: newSupplierName,
           url: newSupplierUrl,
           total_score: 0
@@ -89,7 +89,7 @@ export default function ProjectPage() {
       const { data } = await supabase
         .from('master_requirements')
         .insert([{
-          project_id: id,
+          project_id: projectId,
           label: newRequirement,
           status: 'pending',
           is_critical: false
@@ -199,7 +199,7 @@ export default function ProjectPage() {
             <SupplierMatrix
               suppliers={suppliers}
               requirements={requirements}
-              projectId={id}
+              projectId={projectId}
             />
           </div>
         </div>
