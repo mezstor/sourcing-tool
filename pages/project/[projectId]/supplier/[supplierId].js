@@ -267,17 +267,80 @@ export default function SupplierAuditPage() {
           </div>
         )}
 
-        {/* Chat History */}
+        {/* Chat History with Analysis */}
         {chats.length > 0 && (
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Chat History</h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {chats.map((chat) => (
-                <div key={chat.id} className="border-b border-gray-200 pb-4 last:border-b-0">
-                  <p className="text-sm text-gray-500">
-                    {new Date(chat.created_at).toLocaleDateString()}
+                <div key={chat.id} className="border-l-4 border-indigo-500 pl-4 pb-6 last:pb-0 last:border-b-0">
+                  {/* Date */}
+                  <p className="text-sm font-semibold text-gray-600 mb-2">
+                    📅 {new Date(chat.created_at).toLocaleString()}
                   </p>
-                  <p className="text-gray-700 mt-2 text-sm">{chat.raw_payload.substring(0, 200)}...</p>
+
+                  {/* Chat Text */}
+                  <div className="bg-gray-50 rounded p-3 mb-3">
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{chat.raw_payload}</p>
+                  </div>
+
+                  {/* Analysis if exists */}
+                  {chat.ai_analysis && (
+                    <div className="bg-blue-50 rounded-lg p-4 mt-3 border border-blue-200">
+                      <h4 className="font-semibold text-gray-900 mb-3">AI Analysis</h4>
+
+                      {/* Requirements Status */}
+                      {chat.ai_analysis.requirements && (
+                        <div className="mb-4">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-2">Requirements:</h5>
+                          <div className="space-y-1">
+                            {chat.ai_analysis.requirements.map((req, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm">
+                                <div
+                                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                    req.status === 'confirmed'
+                                      ? 'bg-green-500'
+                                      : req.status === 'conflict'
+                                      ? 'bg-red-500'
+                                      : 'bg-gray-400'
+                                  }`}
+                                />
+                                <span className="text-gray-700">{req.label}: <span className="text-gray-600 italic">{req.evidence}</span></span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Next Question */}
+                      {chat.ai_analysis.next_question_chinese && (
+                        <div className="bg-white rounded p-3 mb-3">
+                          <p className="text-xs font-semibold text-gray-600 mb-1">🇨🇳 Next Question (Chinese):</p>
+                          <p className="text-sm text-gray-800 font-medium">{chat.ai_analysis.next_question_chinese}</p>
+                          {chat.ai_analysis.next_question_english && (
+                            <>
+                              <p className="text-xs font-semibold text-gray-600 mt-2 mb-1">🇬🇧 English:</p>
+                              <p className="text-sm text-gray-700">{chat.ai_analysis.next_question_english}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {chat.ai_analysis.supplier_notes && (
+                        <div className="bg-white rounded p-3 text-sm">
+                          <p className="text-xs font-semibold text-gray-600 mb-1">📝 Notes:</p>
+                          <p className="text-gray-700">{chat.ai_analysis.supplier_notes}</p>
+                          {chat.ai_analysis.supplier_notes_english && chat.ai_analysis.supplier_notes_english !== chat.ai_analysis.supplier_notes && (
+                            <>
+                              <p className="text-xs font-semibold text-gray-600 mt-2 mb-1">🇨🇳 Chinese:</p>
+                              <p className="text-gray-700">{chat.ai_analysis.supplier_notes_english}</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
