@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    const prompt = `You are a sourcing expert auditor.
+    const prompt = `You are a sourcing expert auditor for import/export operations.
 
 MASTER REQUIREMENTS for this supplier:
 ${masterRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n')}
@@ -26,7 +26,8 @@ ${chatText}
 Analyze the chat and:
 1. For each master requirement, determine if it's: "confirmed" (green), "conflict" (red), or "missing" (grey)
 2. Extract any additional supplier notes that aren't related to master requirements
-3. Generate a professional Chinese question to ask the supplier about any RED or GREY items
+3. IMPORTANT: Only generate a question about GREY items (missing info). Do NOT ask about RED items again (they already said no).
+4. Generate BOTH Chinese AND English versions of the question
 
 Respond in JSON format:
 {
@@ -34,11 +35,13 @@ Respond in JSON format:
     { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note" }
   ],
   "supplier_notes": "any extra info about the supplier",
-  "next_question_chinese": "professional question in Chinese"
+  "supplier_notes_english": "English translation of supplier notes",
+  "next_question_chinese": "professional question in Chinese (ONLY about GREY/unanswered items, NOT RED items)",
+  "next_question_english": "English translation of the question"
 }`
 
     const message = await client.chat.completions.create({
-      model: 'gpt-4-turbo',
+      model: 'gpt-3.5-turbo',
       messages: [
         { role: 'user', content: prompt }
       ],

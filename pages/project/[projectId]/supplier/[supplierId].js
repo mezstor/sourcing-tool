@@ -222,22 +222,46 @@ export default function SupplierAuditPage() {
             {/* Next Question */}
             {analysis.next_question_chinese && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Next Question (Chinese)</h3>
-                <p className="text-gray-700 mb-3">{analysis.next_question_chinese}</p>
-                <button
-                  onClick={() => copyToClipboard(analysis.next_question_chinese)}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                >
-                  <Copy size={16} /> Copy Question
-                </button>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Next Question to Ask Supplier</h3>
+
+                {/* Chinese Version */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">🇨🇳 Chinese (Copy this)</h4>
+                  <p className="text-gray-700 mb-3 p-3 bg-white rounded border border-blue-200 font-medium">{analysis.next_question_chinese}</p>
+                  <button
+                    onClick={() => copyToClipboard(analysis.next_question_chinese)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                  >
+                    <Copy size={16} /> Copy Chinese Question
+                  </button>
+                </div>
+
+                {/* English Translation */}
+                {analysis.next_question_english && (
+                  <div className="pt-4 border-t border-blue-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">🇬🇧 English (For reference only)</h4>
+                    <p className="text-gray-600 italic">{analysis.next_question_english}</p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Supplier Notes */}
             {analysis.supplier_notes && (
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Supplier Notes</h3>
-                <p className="text-gray-700">{analysis.supplier_notes}</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Supplier Notes</h3>
+
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">English</h4>
+                  <p className="text-gray-700">{analysis.supplier_notes}</p>
+                </div>
+
+                {analysis.supplier_notes_english && analysis.supplier_notes_english !== analysis.supplier_notes && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Chinese</h4>
+                    <p className="text-gray-700">{analysis.supplier_notes_english}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
