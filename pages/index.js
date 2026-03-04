@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Loader } from 'lucide-react'
+import { Plus, Loader, Zap } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Home() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(false)
   const [projectName, setProjectName] = useState('')
+  const [specifications, setSpecifications] = useState('')
   const [userId] = useState('demo-user') // In production, use auth
 
   useEffect(() => {
@@ -26,21 +27,63 @@ export default function Home() {
     }
   }
 
-  const handleCreateProject = async (e) => {
-    e.preventDefault()
+  const handleCreateProject = async (useAI = false) => {
     if (!projectName.trim()) return
 
     setLoading(true)
     try {
-      const { data } = await supabase
+      // Parse specifications from comma-separated input
+      let specsList = specifications
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+
+      // If using AI, generate specifications using OpenAI
+      if (useAI && specsList.length === 0) {
+        try {
+          const response = await fetch('/api/generate-specs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectName })
+          })
+          const { specifications: aiSpecs } = await response.json()
+          specsList = aiSpecs
+        } catch (error) {
+          console.error('Error generating specs with AI:', error)
+          // Fallback: continue without specs
+        }
+      }
+
+      // Create the project first
+      const { data: projectData } = await supabase
         .from('projects')
-        .insert([{ user_id: userId, name: projectName }])
+        .insert([{
+          user_id: userId,
+          name: projectName
+        }])
         .select()
 
-      setProjects([...projects, data[0]])
+      const newProject = projectData[0]
+
+      // Create master requirements from specifications
+      if (specsList.length > 0) {
+        const masterRequirements = specsList.map((spec) => ({
+          project_id: newProject.id,
+          label: spec,
+          status: 'missing'
+        }))
+
+        await supabase
+          .from('master_requirements')
+          .insert(masterRequirements)
+      }
+
+      setProjects([...projects, newProject])
       setProjectName('')
+      setSpecifications('')
     } catch (error) {
       console.error('Error creating project:', error)
+      alert('Error creating project: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -62,23 +105,44 @@ export default function Home() {
         {/* Create Project Form */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
-          <form onSubmit={handleCreateProject} className="flex gap-3">
+          <div className="space-y-4">
+            {/* Project Name Input */}
             <input
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="e.g., Black Jiggler with logo"
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 disabled:opacity-50"
-            >
-              {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
-              Create
-            </button>
-          </form>
+
+            {/* Specifications Input */}
+            <textarea
+              value={specifications}
+              onChange={(e) => setSpecifications(e.target.value)}
+              placeholder="Specifications (comma-separated). e.g., Material: stainless steel, Color: black, Size: 10cm"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 h-24 resize-none"
+            />
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleCreateProject(false)}
+                disabled={loading || !projectName.trim()}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
+                Create
+              </button>
+              <button
+                onClick={() => handleCreateProject(true)}
+                disabled={loading || !projectName.trim()}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? <Loader className="animate-spin" size={20} /> : <Zap size={20} />}
+                Create with AI
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Projects List */}
