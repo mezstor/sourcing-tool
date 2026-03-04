@@ -18,9 +18,7 @@ export default function ProjectPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    console.log('Project page - router query:', router.query)
     if (projectId) {
-      console.log('Project ID available:', projectId)
       fetchProject()
     }
   }, [projectId])

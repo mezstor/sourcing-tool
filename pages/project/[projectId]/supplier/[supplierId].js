@@ -18,12 +18,8 @@ export default function SupplierAuditPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    console.log('Component mounted. Router query:', router.query)
     if (router.query.projectId && router.query.supplierId) {
-      console.log('Router query available, fetching data...')
       fetchData()
-    } else {
-      console.log('Waiting for router query...')
     }
   }, [router.query])
 
@@ -32,38 +28,31 @@ export default function SupplierAuditPage() {
       setLoading(true)
       setError(null)
 
-      console.log('Fetching supplier data for supplierId:', supplierId)
       const { data: supplierData, error: supplierError } = await supabase
         .from('suppliers')
         .select('*')
         .eq('id', supplierId)
         .single()
 
-      console.log('Supplier response:', { supplierData, supplierError })
       if (supplierError) throw supplierError
 
-      console.log('Fetching chats for supplierId:', supplierId)
       const { data: chatsData, error: chatsError } = await supabase
         .from('chats')
         .select('*')
         .eq('supplier_id', supplierId)
 
-      console.log('Chats response:', { chatsData, chatsError })
       if (chatsError) throw chatsError
 
-      console.log('Fetching requirements for projectId:', projectId)
       const { data: requirementsData, error: requirementsError } = await supabase
         .from('master_requirements')
         .select('*')
         .eq('project_id', projectId)
 
-      console.log('Requirements response:', { requirementsData, requirementsError })
       if (requirementsError) throw requirementsError
 
       setSupplier(supplierData)
       setChats(chatsData || [])
       setRequirements(requirementsData || [])
-      console.log('Data loaded successfully')
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err.message || 'Failed to load supplier data')
