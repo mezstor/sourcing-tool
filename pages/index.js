@@ -90,7 +90,7 @@ export default function Home() {
       }
 
       // Create the project first
-      const { data: projectData } = await supabase
+      let { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert([{
           user_id: userId,
@@ -98,6 +98,23 @@ export default function Home() {
           moq: parseInt(moq)
         }])
         .select()
+
+      // Fallback if MOQ column doesn't exist yet in Supabase
+      if (projectError || !projectData || projectData.length === 0) {
+        console.warn('Insert with MOQ failed, trying without MOQ column:', projectError)
+        const result = await supabase
+          .from('projects')
+          .insert([{
+            user_id: userId,
+            name: projectName
+          }])
+          .select()
+
+        projectData = result.data
+        if (!projectData || projectData.length === 0) {
+          throw new Error('Failed to create project')
+        }
+      }
 
       const newProject = projectData[0]
 
