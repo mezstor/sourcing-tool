@@ -16,6 +16,41 @@ export default function ProjectPage() {
   const [newRequirement, setNewRequirement] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [supplierCumulativeAnalysis, setSupplierCumulativeAnalysis] = useState({})
+
+  // Calculate cumulative analysis from all chats for a supplier
+  const calculateCumulativeAnalysis = (supplierChats, allRequirements) => {
+    if (!supplierChats || supplierChats.length === 0) return null
+
+    // Start with all requirements as missing
+    const cumulativeReqs = allRequirements.map(req => ({
+      id: req.id,
+      label: req.label,
+      status: 'missing',
+      evidence: ''
+    }))
+
+    // Process each chat's analysis
+    supplierChats.forEach(chat => {
+      if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
+
+      chat.ai_analysis.requirements.forEach(chatReq => {
+        const reqIndex = cumulativeReqs.findIndex(r => r.label === chatReq.label)
+        if (reqIndex !== -1) {
+          // Prefer confirmed > conflict > missing
+          if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
+            cumulativeReqs[reqIndex].status = chatReq.status
+            cumulativeReqs[reqIndex].evidence = chatReq.evidence
+          } else if (chatReq.status === 'conflict' && cumulativeReqs[reqIndex].status !== 'confirmed') {
+            cumulativeReqs[reqIndex].status = chatReq.status
+            cumulativeReqs[reqIndex].evidence = chatReq.evidence
+          }
+        }
+      })
+    })
+
+    return cumulativeReqs
+  }
 
   useEffect(() => {
     if (projectId) {
@@ -45,6 +80,23 @@ export default function ProjectPage() {
       setProject(projectData)
       setSuppliers(suppliersData || [])
       setRequirements(requirementsData || [])
+
+      // Fetch chats for each supplier and calculate cumulative analysis
+      if (suppliersData && requirementsData) {
+        const analysisMap = {}
+        for (const supplier of suppliersData) {
+          const { data: chatsData } = await supabase
+            .from('chats')
+            .select('*')
+            .eq('supplier_id', supplier.id)
+
+          if (chatsData && chatsData.length > 0) {
+            const cumulativeReqs = calculateCumulativeAnalysis(chatsData, requirementsData)
+            analysisMap[supplier.id] = cumulativeReqs
+          }
+        }
+        setSupplierCumulativeAnalysis(analysisMap)
+      }
     } catch (error) {
       console.error('Error fetching project:', error)
     } finally {
@@ -216,6 +268,7 @@ export default function ProjectPage() {
               requirements={requirements}
               projectId={projectId}
               onDeleteSupplier={handleDeleteSupplier}
+              supplierCumulativeAnalysis={supplierCumulativeAnalysis}
             />
           </div>
         </div>

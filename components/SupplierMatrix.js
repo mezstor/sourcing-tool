@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Trash2 } from 'lucide-react'
 
-export default function SupplierMatrix({ suppliers, requirements, projectId, onDeleteSupplier }) {
+export default function SupplierMatrix({ suppliers, requirements, projectId, onDeleteSupplier, supplierCumulativeAnalysis = {} }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed':
@@ -30,19 +30,19 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-max">
                   Supplier
                 </th>
                 {requirements.map((req) => (
                   <th
                     key={req.id}
-                    className="text-center py-3 px-2 font-semibold text-gray-700 text-xs"
+                    className="text-center py-3 px-2 font-semibold text-gray-700 text-xs min-w-fit"
                     title={req.label}
                   >
                     {req.label.substring(0, 10)}
                   </th>
                 ))}
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                <th className="text-center py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -50,22 +50,30 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
             <tbody>
               {suppliers.map((supplier) => (
                 <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 min-w-max">
                     <div>
                       <p className="font-semibold text-gray-900">{supplier.nickname}</p>
-                      <p className="text-xs text-gray-500 truncate">{supplier.url}</p>
+                      <p className="text-xs text-gray-500 max-w-xs truncate" title={supplier.url}>{supplier.url}</p>
                     </div>
                   </td>
-                  {requirements.map((req) => (
-                    <td key={req.id} className="text-center py-4 px-2">
-                      <div
-                        className={`w-6 h-6 rounded-full mx-auto ${getStatusColor(
-                          req.status || 'missing'
-                        )}`}
-                        title={req.status || 'missing'}
-                      />
-                    </td>
-                  ))}
+                  {requirements.map((req) => {
+                    // Get status from cumulative analysis if available, otherwise from requirement
+                    let status = 'missing'
+                    if (supplierCumulativeAnalysis[supplier.id]) {
+                      const cumulativeReq = supplierCumulativeAnalysis[supplier.id].find(r => r.label === req.label)
+                      if (cumulativeReq) {
+                        status = cumulativeReq.status
+                      }
+                    }
+                    return (
+                      <td key={req.id} className="text-center py-4 px-2">
+                        <div
+                          className={`w-6 h-6 rounded-full mx-auto ${getStatusColor(status)}`}
+                          title={status}
+                        />
+                      </td>
+                    )
+                  })}
                   <td className="text-center py-4 px-4">
                     <div className="flex items-center justify-center gap-2">
                       <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
