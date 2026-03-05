@@ -133,15 +133,16 @@ export default function SupplierAuditPage() {
         // Only match if confidence is high (>50% - lowered from 60% to catch more matches)
         if (bestMatch !== -1 && bestScore > 50) {
           const reqIndex = bestMatch
-          // Prefer confirmed > conflict > missing
-          if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
+          // Priority: confirmed > partial > conflict > missing
+          const statusPriority = { confirmed: 4, partial: 3, conflict: 2, missing: 1 }
+          const currentPriority = statusPriority[cumulativeReqs[reqIndex].status] || 0
+          const newPriority = statusPriority[chatReq.status] || 0
+
+          // Update if new status is higher priority, or same priority (for more recent evidence)
+          if (newPriority >= currentPriority) {
             cumulativeReqs[reqIndex].status = chatReq.status
             cumulativeReqs[reqIndex].evidence = chatReq.evidence
             console.log(`✅ MATCHED: AI req "${chatReq.label}" (${chatReq.status}) -> Master req "${cumulativeReqs[reqIndex].label}" [score: ${bestScore.toFixed(1)}]`)
-          } else if (chatReq.status === 'conflict' && cumulativeReqs[reqIndex].status !== 'confirmed') {
-            cumulativeReqs[reqIndex].status = chatReq.status
-            cumulativeReqs[reqIndex].evidence = chatReq.evidence
-            console.log(`⚠️ CONFLICT UPDATED: AI req "${chatReq.label}" -> Master req "${cumulativeReqs[reqIndex].label}" [score: ${bestScore.toFixed(1)}]`)
           }
         } else if (bestMatch === -1) {
           console.log(`❌ NO MATCH for AI req: "${chatReq.label}" - would need score > 50`)
@@ -425,6 +426,8 @@ export default function SupplierAuditPage() {
                       className={`w-4 h-4 rounded-full ${
                         req.status === 'confirmed'
                           ? 'bg-green-500'
+                          : req.status === 'partial'
+                          ? 'bg-yellow-500'
                           : req.status === 'conflict'
                           ? 'bg-red-500'
                           : 'bg-gray-400'
@@ -510,6 +513,8 @@ export default function SupplierAuditPage() {
                                   className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 ${
                                     req.status === 'confirmed'
                                       ? 'bg-green-500'
+                                      : req.status === 'partial'
+                                      ? 'bg-yellow-500'
                                       : req.status === 'conflict'
                                       ? 'bg-red-500'
                                       : 'bg-gray-400'
@@ -517,7 +522,7 @@ export default function SupplierAuditPage() {
                                 />
                                 <div className="flex-1">
                                   <p className="font-semibold text-gray-900">{req.label}</p>
-                                  <p className="text-xs font-semibold text-gray-500 mt-1">Status: {req.status === 'confirmed' ? '✅ CONFIRMED' : req.status === 'conflict' ? '❌ CONFLICT' : '⏳ MISSING'}</p>
+                                  <p className="text-xs font-semibold text-gray-500 mt-1">Status: {req.status === 'confirmed' ? '✅ CONFIRMED' : req.status === 'partial' ? '🟠 PARTIAL' : req.status === 'conflict' ? '❌ CONFLICT' : '⏳ MISSING'}</p>
                                   {req.evidence && <p className="text-gray-700 italic mt-1">Evidence: "{req.evidence}"</p>}
                                 </div>
                               </div>

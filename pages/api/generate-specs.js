@@ -8,50 +8,60 @@ function consolidateSpecifications(specs) {
   if (!specs || specs.length === 0) return specs
 
   const consolidated = []
-  const seen = new Set()
+  const sampleSpecFound = {
+    hasCapability: false,
+    hasPrice: false,
+    original: null
+  }
 
   for (const spec of specs) {
     const lowerSpec = spec.toLowerCase()
-
-    // Check if this spec is a duplicate or related to an existing one
     let merged = false
 
-    // Consolidate sample-related specs
-    if ((lowerSpec.includes('sample') || lowerSpec.includes('prototype')) &&
-        (lowerSpec.includes('capability') || lowerSpec.includes('capacity') ||
-         lowerSpec.includes('price') || lowerSpec.includes('cost') ||
-         lowerSpec.includes('lead time') || lowerSpec.includes('timeline'))) {
-
-      // Find existing sample-related spec
-      const existingIndex = consolidated.findIndex(s =>
-        (s.toLowerCase().includes('sample') || s.toLowerCase().includes('prototype'))
-      )
-
-      if (existingIndex >= 0) {
-        // Merge with existing sample spec
-        const existing = consolidated[existingIndex]
-        if (!existing.toLowerCase().includes('capability') && lowerSpec.includes('capability')) {
-          consolidated[existingIndex] = `${existing} (including capability for 1-2 units)`
-        }
-        if (!existing.toLowerCase().includes('price') && (lowerSpec.includes('price') || lowerSpec.includes('cost'))) {
-          consolidated[existingIndex] = `${consolidated[existingIndex]}, pricing, and lead time`
+    // Consolidate sample/prototype related specs
+    if ((lowerSpec.includes('sample') || lowerSpec.includes('prototype'))) {
+      // Track if we found capability or price/lead time
+      if (lowerSpec.includes('capability') || lowerSpec.includes('capacity')) {
+        sampleSpecFound.hasCapability = true
+        if (!sampleSpecFound.original) {
+          sampleSpecFound.original = spec
         }
         merged = true
+      } else if (lowerSpec.includes('price') || lowerSpec.includes('cost') ||
+                 lowerSpec.includes('lead time') || lowerSpec.includes('timeline')) {
+        sampleSpecFound.hasPrice = true
+        merged = true // Don't add separate price spec, will merge later
       }
     }
 
-    // Consolidate lead time specs
+    // Consolidate lead time specs (skip if already have one)
     if (!merged && (lowerSpec.includes('lead time') || lowerSpec.includes('timeline') || lowerSpec.includes('delivery time'))) {
-      const existingIndex = consolidated.findIndex(s => s.toLowerCase().includes('lead time') || s.toLowerCase().includes('timeline'))
-      if (existingIndex >= 0) {
-        merged = true // Skip, already have lead time
+      const hasLeadTime = consolidated.some(s => s.toLowerCase().includes('lead time') || s.toLowerCase().includes('timeline'))
+      if (hasLeadTime) {
+        merged = true // Skip duplicate
       }
     }
 
-    // Add spec if not merged as duplicate
-    if (!merged && !seen.has(lowerSpec.slice(0, 50))) {
+    // Add spec if not merged
+    if (!merged) {
       consolidated.push(spec)
-      seen.add(lowerSpec.slice(0, 50))
+    }
+  }
+
+  // Now merge sample specs if we found both
+  if (sampleSpecFound.hasCapability && sampleSpecFound.hasPrice) {
+    const consolidatedSample = sampleSpecFound.original
+      .replace(/capability/i, 'capability and price')
+      .replace(/\(1-2.*?\)/, '(1-2 units)')
+
+    // Replace the original sample spec with merged version
+    const sampleIndex = consolidated.findIndex(s =>
+      s.toLowerCase().includes('sample') || s.toLowerCase().includes('prototype')
+    )
+    if (sampleIndex >= 0) {
+      consolidated[sampleIndex] = consolidatedSample
+    } else {
+      consolidated.push(consolidatedSample)
     }
   }
 

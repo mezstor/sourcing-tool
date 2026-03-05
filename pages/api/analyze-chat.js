@@ -37,47 +37,62 @@ export default async function handler(req, res) {
       '\n\nSUPPLIER CHAT TEXT:\n' +
       chatText +
       '\n\nAnalyze the chat CAREFULLY for each requirement:\n' +
-      '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n\n' +
-      'CONFIRMED STATUS INDICATORS (Look for these words/phrases - ignore typos like "possibe"/"costumized"):\n' +
+      '1. For each master requirement, determine if it\'s: "confirmed" (green), "partial" (yellow/orange), "conflict" (red), or "missing" (grey)\n\n' +
+      'CONFIRMED STATUS (✅ Green - fully answered):\n' +
+      '  - Supplier clearly stated they can/have it with specific details\n' +
+      '  - "we have capability AND price is X AND lead time is Y" = CONFIRMED\n' +
+      '  - "we provide this service, cost is X, deadline is Y" = CONFIRMED\n' +
+      '  - "yes, we have sample/prototype capability, price 22 RMB" = CONFIRMED (though might ask for lead time later)\n\n' +
+      'PARTIAL STATUS (🟠 Orange/Yellow - answered but incomplete):\n' +
+      '  - Supplier answered PART of the requirement but missing critical details\n' +
+      '  - Example 1: Says "we have sample capability" BUT no price given → PARTIAL\n' +
+      '  - Example 2: Says "prototype price 22 RMB" BUT no lead time/startup cost → PARTIAL\n' +
+      '  - For multi-part requirements like "Prototype/Sample capability and price (1-2 units)":\n' +
+      '    - They said "capability available" BUT NOT price → PARTIAL\n' +
+      '    - They said "price 22 RMB" BUT NOT capability/lead time → PARTIAL\n' +
+      '  - Use PARTIAL when they answered but the requirement still needs follow-up details\n\n' +
+      'CONFIRMED STATUS INDICATORS (🟢 Green):\n' +
       '  - "we have", "we can", "we provide", "we do", "yes", "we accept", "we agree"\n' +
       '  - "possible", "no problem", "can do", "available", "in stock"\n' +
-      '  - "we can provide customization", "customized printing available"\n' +
       '  - Even with typos: "possibe" = possible, "costumized" = customized\n\n' +
-      'CONFLICT STATUS INDICATORS:\n' +
+      'CONFLICT STATUS (❌ Red - impossible):\n' +
       '  - "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
       '  - "we don\'t offer", "not available", "not in stock", "we don\'t provide"\n' +
-      '  - "no customization", "no printing", "cannot be done"\n' +
-      '  - "only X" (implicit conflict for OTHER items). Example: "only purple candles" means red candles = CONFLICT\n' +
-      '  - "we don\'t have X", "no X" (explicit conflict)\n\n' +
-      'MISSING STATUS:\n' +
+      '  - "only X" (implicit conflict for OTHER items). Example: "only purple" means red = CONFLICT\n\n' +
+      'MISSING STATUS (⏳ Grey - not mentioned):\n' +
       '  - Requirement not mentioned in the chat at all\n\n' +
-      'IMPORTANT CONTEXT RULES:\n' +
-      '1. If supplier says "we have no glass but customization is possible", then:\n' +
-      '   - glass = CONFLICT (they said they don\'t have it)\n' +
-      '   - customized printing = CONFIRMED (they said "possible/can do")\n' +
-      '   - Do NOT confuse them\n' +
-      '2. If supplier says "only purple" and you have requirement for "red candles":\n' +
-      '   - red candles = CONFLICT (they only have purple)\n' +
-      '3. Be careful with vague responses like "can do" or "can" - if no specific details are given about WHICH items they can do, mark those requirements as MISSING (not yet discussed in detail)\n\n' +
+      'IMPORTANT CONTEXT:\n' +
+      '1. DISTINGUISH confirmed vs partial:\n' +
+      '   - CONFIRMED = full answer with details\n' +
+      '   - PARTIAL = they responded but some details missing\n' +
+      '2. If supplier says "we have no glass but customization possible":\n' +
+      '   - glass = CONFLICT, customization = CONFIRMED\n' +
+      '3. "only X" logic: "only purple" → red = CONFLICT, green = CONFIRMED if mentioned\n\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
-      '3. IMPORTANT: Generate ONE comprehensive question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted.\n' +
-      '   - If there are 3+ GREY items: Use NUMBERED LIST format to force clear yes/no answers from supplier\n' +
-      '   - Format: "能否逐条确认以下内容:" (Can you please confirm item by item:) followed by numbered items\n' +
-      '   - This prevents vague responses like "can do" and gets specific answers\n' +
-      '   - Example: "能否逐条确认以下内容: 1. 红色蜡烛 - 可以提供吗? 2. 蜂蜡 - 可以提供吗? 3. 产品照片 - 有吗?"\n' +
-      '   - If there are 1-2 GREY items: Use natural conversational format\n' +
-      '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
-      '5. Generate BOTH Chinese AND English versions of the question\n\n' +
-      'Example format for numbered question in Chinese: "能否逐条确认以下内容: 1. 红色蜡烛 - 可以提供吗? 2. 蜂蜡 - 可以提供吗? 3. 定制印刷 - 可以吗?"\n' +
-      'Example format for conversational in Chinese: "请问贵司能否提供产品照片？"\n\n' +
+      '3. IMPORTANT: Generate ONE comprehensive follow-up question. Coverage:\n' +
+      '   - Include ALL GREY items (not mentioned yet)\n' +
+      '   - Include PARTIAL items BUT ask for the MISSING DETAILS ONLY (not re-ask what they already said)\n' +
+      '   - Example: If "sample price" is PARTIAL (they said "22 RMB" but no lead time), ask "What is the lead time and startup cost?"\n' +
+      '   - Do NOT ask about CONFIRMED or CONFLICT items\n' +
+      '   - Be specific about what details are needed\n' +
+      '   Question format:\n' +
+      '   - 3+ items → Use numbered list: "能否逐条确认以下内容:" or "Please confirm:"\n' +
+      '   - 1-2 items → Conversational: "请问贵司能否...?" or "Could you please...?"\n' +
+      '   - Vary phrasing: don\'t use identical templates each time\n' +
+      '   Examples:\n' +
+      '     * Numbered: "能否请逐条确认: 1. 产品照片 - 有吗? 2. MOQ详情 - 您的最低起订量是多少? 3. 定制能力 - 支持吗?"\n' +
+      '     * Conversational: "贵司能提供产品样品吗？样品的起样成本和交期各是多少？"\n' +
+      '     * Specific: "您提到样品价格22元，请问起样的成本、交期和最小数量各是多少?"\n' +
+      '4. If no GREY or PARTIAL items, say: "All key requirements confirmed or clarified"\n' +
+      '5. Generate BOTH Chinese AND English versions\n\n' +
       'Respond in JSON format:\n' +
       '{\n' +
       '  "requirements": [\n' +
-      '    { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note from supplier" }\n' +
+      '    { "label": "requirement name", "status": "confirmed|partial|conflict|missing", "evidence": "brief quote or note from supplier" }\n' +
       '  ],\n' +
       '  "supplier_notes": "any extra info about the supplier",\n' +
       '  "supplier_notes_english": "English translation of supplier notes (if different from above)",\n' +
-      '  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions), or \\"All key requirements confirmed\\" if nothing left",\n' +
+      '  "next_question_chinese": "ONE comprehensive question in Chinese. Ask about GREY items (yes/no) and PARTIAL items (ask for missing details specifically, not re-ask what they said). Or \\"All key requirements confirmed\\" if none remaining",\n' +
       '  "next_question_english": "English translation of the question or confirmation message"\n' +
       '}'
 
