@@ -25,6 +25,74 @@ export default function SupplierAuditPage() {
     }
   }, [router.query])
 
+  // Fuzzy string matcher for requirement labels (works with English and Chinese)
+  const fuzzyMatch = (str1, str2) => {
+    // For exact match (includes Chinese exact match)
+    if (str1 === str2) return 100
+
+    // Normalize for Latin text (lowercase, remove punctuation/numbers)
+    const normalizeLatin = (s) => s.toLowerCase().replace(/[^a-z\u4E00-\u9FFF\s]/g, '').trim()
+    const s1 = normalizeLatin(str1)
+    const s2 = normalizeLatin(str2)
+
+    // Case-insensitive exact match
+    if (s1 === s2) return 100
+
+    // Check if one contains the other (works for both languages)
+    if (s1.includes(s2) && s2.length > 1) return 85
+    if (s2.includes(s1) && s1.length > 1) return 85
+
+    // For Latin: word overlap
+    const latinWords1 = s1.match(/[a-z]+/g) || []
+    const latinWords2 = s2.match(/[a-z]+/g) || []
+    if (latinWords1.length > 0 && latinWords2.length > 0) {
+      const overlap = latinWords1.filter(w => latinWords2.includes(w)).length
+      if (overlap > 0) {
+        const score = (overlap / Math.max(latinWords1.length, latinWords2.length)) * 80
+        if (score > 40) return score
+      }
+    }
+
+    // For Chinese: character overlap
+    const chineseChars1 = s1.match(/[\u4E00-\u9FFF]/g) || []
+    const chineseChars2 = s2.match(/[\u4E00-\u9FFF]/g) || []
+    if (chineseChars1.length > 0 && chineseChars2.length > 0) {
+      const overlap = chineseChars1.filter(c => chineseChars2.includes(c)).length
+      if (overlap > 0) {
+        const score = (overlap / Math.max(chineseChars1.length, chineseChars2.length)) * 80
+        if (score > 40) return score
+      }
+    }
+
+    // Levenshtein distance for mixed content
+    const levenshteinScore = (1 - levenshteinDistance(s1, s2) / Math.max(s1.length, s2.length)) * 70
+    if (levenshteinScore > 40) return levenshteinScore
+
+    return 0
+  }
+
+  // Helper: Levenshtein distance algorithm (works for both languages)
+  const levenshteinDistance = (a, b) => {
+    const matrix = []
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i]
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j
+
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1]
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          )
+        }
+      }
+    }
+    return matrix[b.length][a.length]
+  }
+
   // Calculate cumulative analysis from all chats
   const calculateCumulativeAnalysis = (allChats, allRequirements) => {
     if (!allChats || allChats.length === 0) return null
@@ -42,8 +110,21 @@ export default function SupplierAuditPage() {
       if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
 
       chat.ai_analysis.requirements.forEach(chatReq => {
-        const reqIndex = cumulativeReqs.findIndex(r => r.label === chatReq.label)
-        if (reqIndex !== -1) {
+        // Find best matching requirement using fuzzy matching
+        let bestMatch = -1
+        let bestScore = 0
+
+        cumulativeReqs.forEach((req, idx) => {
+          const score = fuzzyMatch(req.label, chatReq.label)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = idx
+          }
+        })
+
+        // Only match if confidence is high (>60%)
+        if (bestMatch !== -1 && bestScore > 60) {
+          const reqIndex = bestMatch
           // Prefer confirmed > conflict > missing
           if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
             cumulativeReqs[reqIndex].status = chatReq.status
