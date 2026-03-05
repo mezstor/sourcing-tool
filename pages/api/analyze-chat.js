@@ -55,12 +55,18 @@ export default async function handler(req, res) {
       '  • Price mentioned but lead time missing → price & lead time = PARTIAL\n' +
       '  • Capability confirmed but price/lead time not yet given → capability = CONFIRMED, price & lead time = PARTIAL\n' +
       '  PRICE RECOGNITION - ANY of these patterns = price information:\n' +
-      '    - Any number + 元/RMB/rmb/人民币 (e.g. "22元", "200 RMB", "起价200元人民币")\n' +
-      '    - "起价X元" = starting price X → this IS price information\n' +
-      '    - "价格为X元" = price is X → this IS price information\n' +
-      '    - "费用X元" = cost X → this IS price information\n' +
-      '    EXAMPLE: "起价200元人民币" → Prototype price & lead time = PARTIAL (price given, lead time missing)\n' +
-      '    EXAMPLE: "价格为22元" → Prototype price & lead time = PARTIAL (price given, lead time missing)\n\n' +
+      '    Currency words: 元, 块, 块钱, 人民币, RMB, rmb, CNY, cny, ¥\n' +
+      '    Price words: 价格, 报价, 单价, 起价, 费用, 成本, 定价, 价钱, 收费\n' +
+      '    Examples:\n' +
+      '    - "22元" / "22块" / "22块钱" / "¥22" → price = 22\n' +
+      '    - "200人民币" / "200 RMB" / "200 rmb" / "200 CNY" → price = 200\n' +
+      '    - "起价200元" = starting price 200 → price info\n' +
+      '    - "单价22元" = unit price 22 → price info\n' +
+      '    - "报价200元" = quoted price 200 → price info\n' +
+      '    - "费用22元" / "成本22元" = cost 22 → price info\n' +
+      '    ANY of the above = price is given → price & lead time requirement = at least PARTIAL\n' +
+      '    EXAMPLE: "起价200元人民币" → price & lead time = PARTIAL (price given, lead time missing)\n' +
+      '    EXAMPLE: "单价22块" → price & lead time = PARTIAL (price given, lead time missing)\n\n' +
 
       '❌ CONFLICT = Supplier said NO or gave a DIFFERENT value than required:\n' +
       '  • Chinese NO words: "不做"=do not make, "不能"=cannot, "无法"=unable, "没有"=don\'t have, "不提供"=don\'t provide\n' +
