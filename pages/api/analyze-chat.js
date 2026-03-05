@@ -15,102 +15,95 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    // Build previous status context - statuses must NEVER downgrade
+    // Build previous status context
+    // CONFIRMED and CONFLICT are LOCKED forever
+    // PARTIAL can upgrade to confirmed based on new info
     let previousContext = ''
     if (previousAnalysis && previousAnalysis.requirements) {
       const locked = previousAnalysis.requirements
         .filter(r => r.status === 'confirmed' || r.status === 'conflict')
-        .map(r => `"${r.label}" = ${r.status.toUpperCase()} (LOCKED - do not change)`)
+        .map(r => `"${r.label}" = ${r.status.toUpperCase()} (LOCKED - never change this)`)
         .join('\n')
       const partial = previousAnalysis.requirements
         .filter(r => r.status === 'partial')
-        .map(r => `"${r.label}" = PARTIAL (evidence so far: "${r.evidence}")`)
+        .map(r => `"${r.label}" = PARTIAL so far (re-evaluate with new chat - can upgrade to CONFIRMED if fully answered)`)
         .join('\n')
 
-      if (locked) previousContext += `\n\nLOCKED STATUSES (NEVER change these):\n${locked}`
-      if (partial) previousContext += `\n\nPARTIAL (can upgrade to confirmed if more details given, never downgrade to missing):\n${partial}`
+      if (locked) previousContext += `\n\nLOCKED FROM PREVIOUS CHATS (do NOT change):\n${locked}`
+      if (partial) previousContext += `\n\nPARTIAL FROM PREVIOUS CHATS (re-evaluate - may upgrade to CONFIRMED):\n${partial}`
     }
 
     const requirementsList = masterRequirements.map(r => `- "${r.label}"`).join('\n')
 
     const prompt =
-      'You are a strict sourcing auditor. Your job is to check supplier responses against requirements.\n\n' +
+      'You are a strict sourcing auditor checking supplier responses against requirements.\n\n' +
       '=== MASTER REQUIREMENTS ===\n' +
       requirementsList +
       previousContext +
-      '\n\n=== SUPPLIER CHAT ===\n' +
+      '\n\n=== NEW SUPPLIER CHAT (analyze this carefully) ===\n' +
       chatText +
-      '\n\n=== YOUR TASK ===\n' +
-      'Go through EVERY requirement one by one. For each requirement:\n\n' +
-      'STEP 1 - Find evidence: Search the supplier chat for anything related to this requirement.\n' +
-      'STEP 2 - Classify using these STRICT rules:\n\n' +
-      '❌ CONFLICT = Supplier answered but value DIFFERS from requirement, OR they said NO/CANNOT:\n\n' +
-      '=== CONFLICTING SPECS (Value mismatch) ===\n' +
-      '• Color mismatch: requirement="white", supplier said "black" → CONFLICT\n' +
-      '• Size mismatch: requirement="20 cm", supplier said "30 cm" → CONFLICT\n' +
-      '• Size mismatch: requirement="2 meter", supplier said "3 meters" → CONFLICT\n' +
-      '• Material mismatch: requirement="cotton", supplier said "synthetic" → CONFLICT\n' +
-      '• Material mismatch: requirement="coton", supplier said "合成材料" (synthetic) → CONFLICT\n' +
-      '• MOQ mismatch: requirement="100 units", supplier said "600 units" → CONFLICT\n\n' +
-      '=== REFUSALS / NEGATIONS (They said NO/CANNOT/DON\'T HAVE) ===\n' +
-      'THESE ARE ALWAYS CONFLICT:\n\n' +
-      'English negations:\n' +
-      '  "we cannot", "we can\'t", "not possible", "impossible", "we don\'t have", "not available",\n' +
-      '  "we don\'t make", "we don\'t offer", "we don\'t provide", "we don\'t do"\n\n' +
-      'Chinese negations (CRITICAL - these appear in Chinese chats):\n' +
-      '  "不做" (do not make) - Example: "我们不做原型" = "we do not make prototypes" → CONFLICT\n' +
-      '  "不能" (cannot/can\'t) - Example: "我们不能定制" = "we cannot customize" → CONFLICT\n' +
-      '  "无法" (cannot/unable) - Example: "无法提供" = "cannot provide" → CONFLICT\n' +
-      '  "没有" (don\'t have) - Example: "没有库存" = "no stock" → CONFLICT\n' +
-      '  "不提供" (don\'t provide) - Example: "不提供原型" = "don\'t provide prototypes" → CONFLICT\n' +
-      '  "不支持" (don\'t support) - Example: "不支持定制" = "don\'t support customization" → CONFLICT\n' +
-      '  "无" (none/don\'t) - Example: "我们无法提供此服务" = "we cannot provide this service" → CONFLICT\n\n' +
-      '"Only X" logic:\n' +
-      '  "we only have black" → everything NOT black = CONFLICT (white=CONFLICT, red=CONFLICT, etc.)\n' +
-      '  "only synthetic materials" → cotton=CONFLICT, wool=CONFLICT, etc.\n\n' +
-      '🟠 PARTIAL = Supplier mentioned this topic but gave INCOMPLETE details:\n' +
-      '  • Said "we can make prototypes" but NO price → PARTIAL\n' +
-      '  • Said "startup fee 200 RMB" but NO lead time → PARTIAL\n' +
-      '  • Said "we have photos" → CONFIRMED (they said they have them)\n' +
-      '  • Said "can do samples, price 22 RMB" but no lead time → PARTIAL\n\n' +
-      '✅ CONFIRMED = Supplier clearly answered YES with sufficient detail:\n' +
-      '  • "we have product photos" → CONFIRMED for Images requirement\n' +
-      '  • "we can customize" → CONFIRMED for customization\n' +
-      '  • "we accept MOQ 100" → CONFIRMED for MOQ requirement\n' +
-      '  • "we make 20x20 samples" → CONFIRMED for samples (spec matches)\n\n' +
-      '⏳ MISSING = Supplier did NOT mention this requirement at all\n\n' +
+      '\n\n=== ANALYSIS RULES ===\n\n' +
+
+      '✅ CONFIRMED = Supplier clearly said YES or gave a specific value that matches:\n' +
+      '  • Capability requirements: supplier said "可以做" / "能做" / "we can make" / "we offer this" → CONFIRMED\n' +
+      '    - "原型机可以做" = "we CAN make prototypes" → Prototype/Sample CAPABILITY = CONFIRMED\n' +
+      '    - "我们可以定制" = "we can customize" → Customization = CONFIRMED\n' +
+      '  • Simple yes: "we have photos" / "有图片" → Images = CONFIRMED\n' +
+      '  • MOQ match: requirement "10 units" + supplier "最低10件" → MOQ = CONFIRMED\n\n' +
+
+      '🟠 PARTIAL = Supplier gave SOME information but not everything needed:\n' +
+      '  • Price mentioned but lead time missing → price & lead time = PARTIAL\n' +
+      '  • Capability confirmed but price/lead time not yet given → capability = CONFIRMED, price & lead time = PARTIAL\n' +
+      '  PRICE RECOGNITION - ANY of these patterns = price information:\n' +
+      '    - Any number + 元/RMB/rmb/人民币 (e.g. "22元", "200 RMB", "起价200元人民币")\n' +
+      '    - "起价X元" = starting price X → this IS price information\n' +
+      '    - "价格为X元" = price is X → this IS price information\n' +
+      '    - "费用X元" = cost X → this IS price information\n' +
+      '    EXAMPLE: "起价200元人民币" → Prototype price & lead time = PARTIAL (price given, lead time missing)\n' +
+      '    EXAMPLE: "价格为22元" → Prototype price & lead time = PARTIAL (price given, lead time missing)\n\n' +
+
+      '❌ CONFLICT = Supplier said NO or gave a DIFFERENT value than required:\n' +
+      '  • Chinese NO words: "不做"=do not make, "不能"=cannot, "无法"=unable, "没有"=don\'t have, "不提供"=don\'t provide\n' +
+      '    - "我们不做原型" = "we do NOT make prototypes" → Prototype CAPABILITY = CONFLICT\n' +
+      '  • English NO: "we cannot", "not possible", "we don\'t have", "not available"\n' +
+      '  • Color mismatch: requirement="yellow", supplier said "only green" → yellow = CONFLICT\n' +
+      '  • Material mismatch: requirement="plastic", supplier said "only metal" → plastic = CONFLICT\n' +
+      '  • Size mismatch: requirement="20cm", supplier said "30cm" → CONFLICT\n' +
+      '  • MOQ mismatch: requirement="10 units", supplier said "minimum 1000" → CONFLICT\n' +
+      '  • "Only X" = CONFLICT for everything that is NOT X\n\n' +
+
+      '⏳ MISSING = Supplier did not mention this at all\n\n' +
+
       '=== CRITICAL RULES ===\n' +
-      '1. NEGATION WORDS = Always CONFLICT. Look for Chinese words: 不做, 不能, 无法, 没有, 不提供, 不支持\n' +
-      '2. Spec mismatch (color/size/material differs) = CONFLICT, never MISSING\n' +
-      '3. Never mark MISSING if supplier mentioned a value - even if wrong = CONFLICT\n' +
-      '4. "Only X" = CONFLICT for everything that is NOT X\n' +
-      '5. LOCKED statuses (confirmed/conflict from before) NEVER change\n\n' +
+      '1. CAPABILITY vs PRICE are separate requirements:\n' +
+      '   - "Prototype capability" = can they make it? YES/NO → use CONFIRMED/CONFLICT\n' +
+      '   - "Prototype price & lead time" = what does it cost and how long? → use PARTIAL if only price, CONFIRMED if both\n' +
+      '   - "原型机可以做，但起价200元" → capability=CONFIRMED (they CAN do it), price & lead time=PARTIAL (price 200 given, lead time missing)\n' +
+      '2. ANY price mention (元/RMB/rmb + number) = evidence for price requirement → at minimum PARTIAL\n' +
+      '3. LOCKED statuses (confirmed/conflict) NEVER change\n' +
+      '4. PARTIAL statuses CAN upgrade to CONFIRMED if new chat provides the missing details\n' +
+      '5. Never copy old evidence - always write fresh evidence based on the new chat + overall conversation\n\n' +
+
       '=== FOLLOW-UP QUESTION ===\n' +
-      'CRITICAL: Generate ONE single comprehensive question that bundles ALL items needing action:\n' +
-      '- Include EVERY MISSING requirement (grey items) in this ONE question\n' +
-      '- Include EVERY PARTIAL requirement (orange items) in this ONE question, asking for MISSING DETAILS ONLY\n' +
-      '- Do NOT include confirmed (green) or conflict (red) items\n' +
-      'This is NOT multiple separate questions - it is ONE multi-part question!\n\n' +
-      'Format guidelines:\n' +
-      '  3+ items → Use numbered list format:\n' +
-      '    能否逐条确认以下信息:\n' +
-      '    1. [specific question about first missing/partial item]\n' +
-      '    2. [specific question about second missing/partial item]\n' +
-      '    3. [specific question about third missing/partial item]\n\n' +
-      '  1-2 items → Use conversational format without numbers\n\n' +
-      'EXAMPLES OF CORRECT BUNDLING:\n' +
-      '  WRONG: Only asks about one item: "您是否可以提供样品?"\n' +
-      '  CORRECT: Asks about all missing/partial items together:\n' +
-      '    "能否逐条确认: 1. 最低起订量(MOQ)是多少? 2. 您是否可以提供1-2个样品？样品的起样成本和交期各是多少? 3. 您支持定制吗?"\n\n' +
-      'Vary language naturally. Do not use identical templates each time.\n\n' +
-      'Respond ONLY in this JSON format (no other text):\n' +
+      'Write ONE single comprehensive question bundling ALL items needing clarification:\n' +
+      '- EVERY MISSING requirement (grey) → ask if they have it\n' +
+      '- EVERY PARTIAL requirement (orange) → ask ONLY for the missing details\n' +
+      '- Do NOT include confirmed (green) or conflict (red) items\n\n' +
+      'CRITICAL: Bundle into ONE message, not separate questions!\n' +
+      'Format:\n' +
+      '  3+ items → numbered list: "能否逐条确认: 1. ... 2. ... 3. ..."\n' +
+      '  1-2 items → conversational\n\n' +
+      'WRONG: "您是否可以提供样品?" (only asks about one thing)\n' +
+      'RIGHT: "能否逐条确认以下信息: 1. MOQ是多少? 2. 样品价格及交期是多少? 3. 支持定制吗?"\n\n' +
+
+      'Respond ONLY in JSON (no other text):\n' +
       '{\n' +
       '  "requirements": [\n' +
-      '    { "label": "exact requirement name", "status": "confirmed|partial|conflict|missing", "evidence": "quote or reason" }\n' +
+      '    { "label": "exact requirement name", "status": "confirmed|partial|conflict|missing", "evidence": "fresh evidence from current analysis" }\n' +
       '  ],\n' +
       '  "supplier_notes": "key facts about supplier",\n' +
       '  "supplier_notes_english": "English translation",\n' +
-      '  "next_question_chinese": "ONE comprehensive question in Chinese - bundle all missing/partial items together",\n' +
+      '  "next_question_chinese": "ONE comprehensive question in Chinese covering ALL missing/partial items",\n' +
       '  "next_question_english": "English translation"\n' +
       '}'
 
@@ -125,7 +118,6 @@ export default async function handler(req, res) {
 
     const responseText = message.choices[0].message.content
 
-    // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       throw new Error("No JSON found in response")
