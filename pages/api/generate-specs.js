@@ -106,7 +106,7 @@ Examples of good specs:
 - "Packaging type and customization options"`
 
     const message = await client.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4-turbo',
       messages: [
         { role: 'user', content: prompt }
       ],
