@@ -64,13 +64,27 @@ export default async function handler(req, res) {
       '    - "我们用石头做" → Material: stone\n' +
       '    - "只能做玻璃的" → Material: glass\n\n' +
 
-      '=== STEP 3: MATCH SUPPLIER SPECS AGAINST REQUIREMENTS ===\n' +
-      'For EACH requirement spec:\n' +
-      '  1. Extract supplier value (e.g., "artificial leather" from message)\n' +
-      '  2. Compare against requirement value (e.g., "cotton")\n' +
-      '  3. Do they match? → CONFIRMED ✅\n' +
-      '  4. Do they NOT match? → CONFLICT 🔴\n' +
-      '  UNIVERSAL for ANY product - works for materials, types, colors, sizes, etc.\n\n' +
+      '=== STEP 3: SEMANTIC MATCHING FOR REQUIREMENT SPECS ===\n' +
+      'Use AI judgment (not hardcoded rules) for ANY requirement specification:\n' +
+      'For EACH requirement with a specific value:\n' +
+      '  1. Extract supplier value from message (e.g., "lavendel" from "we only make lavendel")\n' +
+      '  2. Understand the CATEGORY: What type of spec is this?\n' +
+      '     - Scent/flavor: vanilla, lavendel, rose, mint → all in same category\n' +
+      '     - Color: red, blue, green, yellow → all in same category\n' +
+      '     - Material: cotton, linen, wool, polyester, artificial leather, glass, stone, metal → same category\n' +
+      '     - Texture: smooth, rough, silky → same category\n' +
+      '     - Size/dimensions: any measurement values → same category\n' +
+      '     - And 1000 other possible specifications (taste, weight, shape, style, finish, etc.)\n' +
+      '  3. SEMANTIC COMPARISON:\n' +
+      '     - If supplier value = requirement value EXACTLY (or equivalent) → CONFIRMED ✅\n' +
+      '       EXAMPLES: req="vanilla" + supplier="vanilla" → CONFIRMED\n' +
+      '       EXAMPLES: req="cotton" + supplier="cotton fabric" → CONFIRMED (equivalent)\n' +
+      '     - If supplier value ≠ requirement value BUT same category → CONFLICT 🔴\n' +
+      '       EXAMPLES: req="vanilla" + supplier="lavendel" → CONFLICT (both scents, but different)\n' +
+      '       EXAMPLES: req="red" + supplier="blue" → CONFLICT (both colors, but different)\n' +
+      '       EXAMPLES: req="cotton" + supplier="artificial leather" → CONFLICT (both materials, but different)\n' +
+      '     - If supplier did NOT mention this category at all → MISSING ⏳\n' +
+      '  4. CRITICAL: Use semantic reasoning, NOT string matching. The system must understand meaning.\n\n' +
 
       '=== ANALYSIS RULES ===\n\n' +
 
@@ -100,27 +114,33 @@ export default async function handler(req, res) {
       '    EXAMPLE: "单价22块" → price & lead time = PARTIAL (price given, lead time missing)\n\n' +
 
       '❌ CONFLICT = Supplier said NO or gave a DIFFERENT value than required (RED STATUS):\n' +
-      '  UNIVERSAL MISMATCH RULES (works for ANY product type):\n' +
-      '  • Material mismatch: req="cotton" supplier="artificial leather" → CONFLICT 🔴\n' +
-      '  • Material mismatch: req="glass" supplier="stone" → CONFLICT 🔴\n' +
-      '  • Material mismatch: req="gold" supplier="silver" → CONFLICT 🔴\n' +
-      '  • Type mismatch: req="dog rope" supplier="only cat rope" → CONFLICT 🔴\n' +
-      '  • Type mismatch: req="plastic bottle" supplier="glass bottle" → CONFLICT 🔴\n' +
-      '  • "Only X" statement = CONFLICT for requirements that are NOT X\n' +
-      '  NO WORDS (supplier explicitly cannot make it):\n' +
-      '  • Chinese: "不做"=don\'t make, "不能"=cannot, "无法"=unable, "没有"=don\'t have, "不提供"=don\'t provide\n' +
-      '    - "我们不做原型" = "we do NOT make prototypes" → Prototype CAPABILITY = CONFLICT 🔴\n' +
-      '  • English: "we cannot", "not possible", "we don\'t have", "not available"\n' +
-      '  • Explicit mismatch: "我们只能做人造革，不能做棉布" = can ONLY make artificial leather, NOT cotton → CONFLICT 🔴\n' +
-      '  • Value mismatch: requirement="10 units", supplier="minimum 1000" → CONFLICT 🔴\n\n' +
+      '  SEMANTIC MISMATCHES (AI determines if specs conflict):\n' +
+      '  • SAME CATEGORY, DIFFERENT VALUE = CONFLICT 🔴\n' +
+      '    Examples:\n' +
+      '    - Scent: req="vanilla" supplier="lavendel" → both scents, different → CONFLICT 🔴\n' +
+      '    - Color: req="red" supplier="blue" → both colors, different → CONFLICT 🔴\n' +
+      '    - Material: req="cotton" supplier="artificial leather" → both materials, different → CONFLICT 🔴\n' +
+      '    - Texture: req="smooth" supplier="rough" → both textures, different → CONFLICT 🔴\n' +
+      '    - Style: req="modern" supplier="vintage" → both styles, different → CONFLICT 🔴\n' +
+      '    - Weight: req="lightweight" supplier="heavy" → same scale, different → CONFLICT 🔴\n' +
+      '    - Size: req="small" supplier="extra large" → same dimension, different → CONFLICT 🔴\n' +
+      '  • EXPLICIT REFUSAL = CONFLICT 🔴\n' +
+      '    - Chinese: "不做"=don\'t make, "不能"=cannot, "无法"=unable, "没有"=don\'t have\n' +
+      '    - "我们不做原型" = "we do NOT make prototypes" → CONFLICT 🔴\n' +
+      '  • "ONLY X" = CONFLICT for anything that is NOT X\n' +
+      '    - "我们只能做人造革，不能做棉布" = only artificial leather, NOT cotton → CONFLICT 🔴\n' +
+      '    - "我们只做猫绳，不做狗绳" = only cat ropes, NOT dog ropes → CONFLICT 🔴\n\n' +
 
       '⏳ MISSING = Supplier did not mention this at all\n\n' +
 
       '=== CRITICAL RULES ===\n' +
-      '0. ALWAYS check product specs FIRST (material, type, properties):\n' +
-      '   - Extract what supplier is offering\n' +
-      '   - Compare against requirement specs\n' +
-      '   - If specs don\'t match → CONFLICT 🔴 regardless of capabilities\n' +
+      '0. SEMANTIC MATCHING for any requirement specification:\n' +
+      '   - Always use AI JUDGMENT, not hardcoded string matching\n' +
+      '   - Understand what category the specification is (scent, color, material, texture, style, size, etc.)\n' +
+      '   - If supplier offers something in the SAME CATEGORY but DIFFERENT VALUE → CONFLICT 🔴\n' +
+      '   - This works for 1000+ different specification types without any new code\n' +
+      '   - Example: requirement="vanilla" + supplier="lavendel" → CONFLICT 🔴 (both scents, different)\n' +
+      '   - Example: requirement="cotton" + supplier="artificial leather" → CONFLICT 🔴 (both materials, different)\n' +
       '   - Example: "We can make prototypes of artificial leather" + requirement "cotton" = capability CONFIRMED but material CONFLICT 🔴\n' +
       '1. CAPABILITY vs PRICE are separate requirements:\n' +
       '   - "Prototype capability" = can they make it? YES/NO → use CONFIRMED/CONFLICT\n' +
@@ -153,21 +173,41 @@ export default async function handler(req, res) {
       '  "next_question_chinese": "ONE comprehensive question in Chinese covering ALL missing/partial items",\n' +
       '  "next_question_english": "English translation"\n' +
       '}\n\n' +
-      'EXAMPLE - Requirement: "Cotton dog rope":\n' +
+      'EXAMPLE 1 - Requirement: "Vanilla scent":\n' +
+      '  Supplier says: "我们只能做薰衣草香味" (we can only make lavendel scent)\n' +
+      '  SEMANTIC ANALYSIS:\n' +
+      '    - Category: SCENT (both are scents)\n' +
+      '    - Requirement: vanilla\n' +
+      '    - Supplier: lavendel\n' +
+      '    - Same category? YES → both are scents\n' +
+      '    - Same value? NO → vanilla ≠ lavendel\n' +
+      '  RESULT: Scent = CONFLICT 🔴 (supplier offers different scent)\n\n' +
+      'EXAMPLE 2 - Requirement: "Cotton dog rope":\n' +
       '  Supplier says: "我们只能做人造革材质的牵引绳" (only artificial leather leashes)\n' +
-      '  PRODUCT SPEC: Material=artificial leather, Type=leash\n' +
-      '  ANALYSIS:\n' +
-      '    - Prototype capability: "可以做" → CONFIRMED ✅\n' +
-      '    - Material: requirement "cotton" vs supplier "artificial leather" → CONFLICT 🔴\n' +
+      '  SEMANTIC ANALYSIS:\n' +
+      '    - Material category: MATERIAL (both are materials)\n' +
+      '    - Type category: TYPE (both are ropes/leashes)\n' +
+      '    - Material: requirement "cotton" vs supplier "artificial leather" → different materials → CONFLICT 🔴\n' +
       '    - Type: both are ropes/leashes → CONFIRMED ✅\n' +
-      '  EVIDENCE: "Supplier explicitly states only artificial leather (人造革), not cotton"\n' +
-      '  STATUS: Material = CONFLICT 🔴 (RED)\n\n' +
-      'EXAMPLE - Requirement: "Glass product":\n' +
+      '  RESULT: Material = CONFLICT 🔴, Type = CONFIRMED ✅\n\n' +
+      'EXAMPLE 3 - Requirement: "Red color":\n' +
+      '  Supplier says: "我们只做蓝色的" (we only make blue)\n' +
+      '  SEMANTIC ANALYSIS:\n' +
+      '    - Category: COLOR (both are colors)\n' +
+      '    - Requirement: red\n' +
+      '    - Supplier: blue\n' +
+      '    - Same category? YES → both are colors\n' +
+      '    - Same value? NO → red ≠ blue\n' +
+      '  RESULT: Color = CONFLICT 🔴 (supplier offers different color)\n\n' +
+      'EXAMPLE 4 - Requirement: "Glass product":\n' +
       '  Supplier says: "我们只用石头做" (we only make stone)\n' +
-      '  PRODUCT SPEC: Material=stone\n' +
-      '  ANALYSIS: requirement "glass" vs supplier "stone" → CONFLICT 🔴\n' +
-      '  EVIDENCE: "Supplier only offers stone products, not glass"\n' +
-      '  STATUS: Material = CONFLICT 🔴 (RED)'
+      '  SEMANTIC ANALYSIS:\n' +
+      '    - Category: MATERIAL (both are materials)\n' +
+      '    - Requirement: glass\n' +
+      '    - Supplier: stone\n' +
+      '    - Same category? YES → both are materials\n' +
+      '    - Same value? NO → glass ≠ stone\n' +
+      '  RESULT: Material = CONFLICT 🔴 (supplier offers different material)'
 
     const message = await client.chat.completions.create({
       model: 'gpt-3.5-turbo',
