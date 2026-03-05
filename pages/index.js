@@ -127,7 +127,7 @@ export default function Home() {
       const aiSpecs = await aiSpecsPromise
       specsList = [...specsList, ...aiSpecs]
 
-      // Prepare master requirements
+      // Prepare master requirements - ALWAYS include these base requirements
       const masterRequirements = [
         {
           project_id: newProject.id,
@@ -138,6 +138,16 @@ export default function Home() {
           project_id: newProject.id,
           label: `MOQ: ${moqCopy} units`,
           status: 'pending'
+        },
+        {
+          project_id: newProject.id,
+          label: 'Prototype/Sample capability (1-2 units)',
+          status: 'missing'
+        },
+        {
+          project_id: newProject.id,
+          label: 'Prototype/Sample price & lead time',
+          status: 'missing'
         },
         ...specsList.map((spec) => ({
           project_id: newProject.id,
