@@ -3,6 +3,61 @@ import OpenAI from 'openai'
 const apiKey = process.env.OPENAI_API_KEY
 const client = new OpenAI({ apiKey })
 
+// Consolidate related specifications to avoid duplicates and improve clarity
+function consolidateSpecifications(specs) {
+  if (!specs || specs.length === 0) return specs
+
+  const consolidated = []
+  const seen = new Set()
+
+  for (const spec of specs) {
+    const lowerSpec = spec.toLowerCase()
+
+    // Check if this spec is a duplicate or related to an existing one
+    let merged = false
+
+    // Consolidate sample-related specs
+    if ((lowerSpec.includes('sample') || lowerSpec.includes('prototype')) &&
+        (lowerSpec.includes('capability') || lowerSpec.includes('capacity') ||
+         lowerSpec.includes('price') || lowerSpec.includes('cost') ||
+         lowerSpec.includes('lead time') || lowerSpec.includes('timeline'))) {
+
+      // Find existing sample-related spec
+      const existingIndex = consolidated.findIndex(s =>
+        (s.toLowerCase().includes('sample') || s.toLowerCase().includes('prototype'))
+      )
+
+      if (existingIndex >= 0) {
+        // Merge with existing sample spec
+        const existing = consolidated[existingIndex]
+        if (!existing.toLowerCase().includes('capability') && lowerSpec.includes('capability')) {
+          consolidated[existingIndex] = `${existing} (including capability for 1-2 units)`
+        }
+        if (!existing.toLowerCase().includes('price') && (lowerSpec.includes('price') || lowerSpec.includes('cost'))) {
+          consolidated[existingIndex] = `${consolidated[existingIndex]}, pricing, and lead time`
+        }
+        merged = true
+      }
+    }
+
+    // Consolidate lead time specs
+    if (!merged && (lowerSpec.includes('lead time') || lowerSpec.includes('timeline') || lowerSpec.includes('delivery time'))) {
+      const existingIndex = consolidated.findIndex(s => s.toLowerCase().includes('lead time') || s.toLowerCase().includes('timeline'))
+      if (existingIndex >= 0) {
+        merged = true // Skip, already have lead time
+      }
+    }
+
+    // Add spec if not merged as duplicate
+    if (!merged && !seen.has(lowerSpec.slice(0, 50))) {
+      consolidated.push(spec)
+      seen.add(lowerSpec.slice(0, 50))
+    }
+  }
+
+  return consolidated
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -59,7 +114,10 @@ Examples of good specs:
 
     const result = JSON.parse(jsonMatch[0])
 
-    return res.status(200).json(result)
+    // Consolidate related specifications to avoid duplicates
+    const consolidatedSpecs = consolidateSpecifications(result.specifications)
+
+    return res.status(200).json({ specifications: consolidatedSpecs })
   } catch (error) {
     console.error('OpenAI API error:', error)
     return res.status(500).json({
