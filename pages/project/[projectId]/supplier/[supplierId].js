@@ -28,6 +28,7 @@ export default function SupplierAuditPage() {
     try {
       setLoading(true)
       setError(null)
+      setChats([]) // Reset chats state when switching suppliers
 
       const { data: supplierData, error: supplierError } = await supabase
         .from('suppliers')
