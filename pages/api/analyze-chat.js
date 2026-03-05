@@ -23,33 +23,28 @@ export default async function handler(req, res) {
       return importantKeywords.some(k => label.includes(k)) || r.label.includes('MOQ') || r.label.includes('Images')
     })
 
-    const prompt = `You are a sourcing expert auditor for import/export operations.
-
-MASTER REQUIREMENTS for this supplier:
-${filteredRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n')}
-
-SUPPLIER CHAT TEXT:
-${chatText}
-
-Analyze the chat and:
-1. For each master requirement, determine if it's: "confirmed" (green), "conflict" (red), or "missing" (grey)
-2. Extract any additional supplier notes that aren't related to master requirements
-3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items (missing info). Do NOT ask about RED items again (they already said no). The question should cover multiple aspects in one message to maximize efficiency.
-4. If there are no GREY items left, indicate "All key requirements confirmed"
-5. Generate BOTH Chinese AND English versions of the question
-
-Example format for multi-part question in Chinese: "请问贵司在${MOQ}件起订量下的价格是多少，样品/小批量价格如何，起样成本及交期各多少？"
-
-Respond in JSON format:
-{
-  "requirements": [
-    { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note" }
-  ],
-  "supplier_notes": "any extra info about the supplier",
-  "supplier_notes_english": "English translation of supplier notes (if different from above)",
-  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions)",
-  "next_question_english": "English translation of the question"
-}`
+    const prompt = 'You are a sourcing expert auditor for import/export operations.\n\n' +
+      'MASTER REQUIREMENTS for this supplier:\n' +
+      filteredRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n') +
+      '\n\nSUPPLIER CHAT TEXT:\n' +
+      chatText +
+      '\n\nAnalyze the chat and:\n' +
+      '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n' +
+      '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
+      '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items (missing info). Do NOT ask about RED items again (they already said no). The question should cover multiple aspects in one message to maximize efficiency.\n' +
+      '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
+      '5. Generate BOTH Chinese AND English versions of the question\n\n' +
+      'Example format for multi-part question in Chinese: "请问贵司在100件起订量下的价格是多少，样品/小批量价格如何，起样成本及交期各多少？"\n\n' +
+      'Respond in JSON format:\n' +
+      '{\n' +
+      '  "requirements": [\n' +
+      '    { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note" }\n' +
+      '  ],\n' +
+      '  "supplier_notes": "any extra info about the supplier",\n' +
+      '  "supplier_notes_english": "English translation of supplier notes (if different from above)",\n' +
+      '  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions)",\n' +
+      '  "next_question_english": "English translation of the question"\n' +
+      '}'
 
     const message = await client.chat.completions.create({
       model: 'gpt-3.5-turbo',

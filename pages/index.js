@@ -21,7 +21,8 @@ export default function Home() {
         .from('projects')
         .select('*')
         .eq('user_id', userId)
-      
+        .order('created_at', { ascending: false })
+
       setProjects(data || [])
     } catch (error) {
       console.error('Error fetching projects:', error)
