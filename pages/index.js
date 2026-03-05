@@ -102,17 +102,24 @@ export default function Home() {
           })
       }
 
+      // Parse MOQ safely
+      const moqValue = parseInt(moqCopy, 10)
+      if (isNaN(moqValue) || moqValue <= 0) {
+        throw new Error('MOQ must be a positive number')
+      }
+
       // Create the project
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert([{
           user_id: userId,
           name: projectNameCopy,
-          moq: parseInt(moqCopy)
+          moq: moqValue
         }])
         .select()
 
       if (projectError) throw projectError
+      if (!projectData || !projectData[0]) throw new Error('Failed to create project')
 
       const newProject = projectData[0]
 
@@ -142,12 +149,18 @@ export default function Home() {
       // Update UI immediately with new project
       setProjects([newProject, ...projects])
 
-      // Insert requirements in background
+      // Insert requirements in background (non-blocking)
       if (masterRequirements.length > 0) {
+        // Fire and forget - don't wait for this
         supabase
           .from('master_requirements')
           .insert(masterRequirements)
-          .catch(error => console.error('Error inserting requirements:', error))
+          .then(() => {
+            console.log('Requirements inserted successfully')
+          })
+          .catch(error => {
+            console.error('Error inserting requirements:', error)
+          })
       }
     } catch (error) {
       console.error('Error creating project:', error)
