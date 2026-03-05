@@ -17,15 +17,20 @@ export default function Home() {
 
   const fetchProjects = async () => {
     try {
-      const { data } = await supabase
+      setLoading(true)
+      const { data, error } = await supabase
         .from('projects')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
+      if (error) throw error
       setProjects(data || [])
     } catch (error) {
       console.error('Error fetching projects:', error)
+      setProjects([])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -67,8 +72,8 @@ export default function Home() {
 
     setLoading(true)
     try {
-      // Parse specifications from comma-separated input
-      let specsList = specifications
+      // Parse specifications from comma-separated input, handle empty/null safely
+      let specsList = (specifications || '')
         .split(',')
         .map(s => s.trim())
         .filter(s => s.length > 0)
@@ -127,7 +132,7 @@ export default function Home() {
           .insert(masterRequirements)
       }
 
-      setProjects([...projects, newProject])
+      setProjects([newProject, ...projects])
       setProjectName('')
       setMoq('')
       setSpecifications('')

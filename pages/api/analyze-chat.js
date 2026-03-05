@@ -23,6 +23,9 @@ export default async function handler(req, res) {
       chatText +
       '\n\nAnalyze the chat and:\n' +
       '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n' +
+      '   - CONFIRMED: Supplier explicitly agreed, confirmed, or accepted the requirement\n' +
+      '   - CONFLICT: Supplier explicitly said NO, cannot provide, refused, not available, not possible, doesn\'t work, etc.\n' +
+      '   - MISSING: Requirement not mentioned or discussed yet\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
       '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items (missing info). Do NOT ask about RED items again (they already said no). The question should cover multiple aspects in one message to maximize efficiency.\n' +
       '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
