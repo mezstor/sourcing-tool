@@ -9,16 +9,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { chatText, masterRequirements } = req.body
+    const { chatText, masterRequirements, previousAnalysis } = req.body
 
     if (!chatText || !masterRequirements) {
       return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    // Build context about what's already been confirmed or conflicted
+    let previousContext = ''
+    if (previousAnalysis && previousAnalysis.requirements) {
+      const confirmed = previousAnalysis.requirements.filter(r => r.status === 'confirmed').map(r => r.label).join(', ')
+      const conflicted = previousAnalysis.requirements.filter(r => r.status === 'conflict').map(r => r.label).join(', ')
+
+      if (confirmed) {
+        previousContext += `\n\nALREADY CONFIRMED (do NOT ask about these again): ${confirmed}`
+      }
+      if (conflicted) {
+        previousContext += `\n\nALREADY CONFLICTED - Supplier said NO (do NOT ask about these again): ${conflicted}`
+      }
     }
 
     // Use ALL master requirements - don't filter out any user-specified requirements
     const prompt = 'You are a sourcing expert auditor for import/export operations.\n\n' +
       'MASTER REQUIREMENTS for this supplier:\n' +
       masterRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n') +
+      previousContext +
       '\n\nSUPPLIER CHAT TEXT:\n' +
       chatText +
       '\n\nAnalyze the chat and:\n' +
@@ -27,7 +42,7 @@ export default async function handler(req, res) {
       '   - CONFLICT: Supplier explicitly said NO, cannot provide, refused, not available, not possible, doesn\'t work, etc.\n' +
       '   - MISSING: Requirement not mentioned or discussed yet\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
-      '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items (missing info). Do NOT ask about RED items again (they already said no). The question should cover multiple aspects in one message to maximize efficiency.\n' +
+      '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted. The question should combine multiple grey items into one efficient message.\n' +
       '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
       '5. Generate BOTH Chinese AND English versions of the question\n\n' +
       'Example format for multi-part question in Chinese: "请问贵司在100件起订量下的价格是多少，样品/小批量价格如何，起样成本及交期各多少？"\n\n' +
@@ -38,8 +53,8 @@ export default async function handler(req, res) {
       '  ],\n' +
       '  "supplier_notes": "any extra info about the supplier",\n' +
       '  "supplier_notes_english": "English translation of supplier notes (if different from above)",\n' +
-      '  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions)",\n' +
-      '  "next_question_english": "English translation of the question"\n' +
+      '  "next_question_chinese": "ONE comprehensive multi-part question in Chinese covering ALL GREY items (not multiple questions), or \\"All key requirements confirmed\\" if nothing left",\n' +
+      '  "next_question_english": "English translation of the question or confirmation message"\n' +
       '}'
 
     const message = await client.chat.completions.create({

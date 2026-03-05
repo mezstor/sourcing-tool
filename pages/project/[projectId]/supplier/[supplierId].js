@@ -14,6 +14,7 @@ export default function SupplierAuditPage() {
   const [chatText, setChatText] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
+  const [cumulativeAnalysis, setCumulativeAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [suppliers, setSuppliers] = useState([])
@@ -23,6 +24,68 @@ export default function SupplierAuditPage() {
       fetchData()
     }
   }, [router.query])
+
+  // Calculate cumulative analysis from all chats
+  const calculateCumulativeAnalysis = (allChats, allRequirements) => {
+    if (!allChats || allChats.length === 0) return null
+
+    // Start with all requirements as missing
+    const cumulativeReqs = allRequirements.map(req => ({
+      id: req.id,
+      label: req.label,
+      status: 'missing',
+      evidence: ''
+    }))
+
+    // Process each chat's analysis
+    allChats.forEach(chat => {
+      if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
+
+      chat.ai_analysis.requirements.forEach(chatReq => {
+        const reqIndex = cumulativeReqs.findIndex(r => r.label === chatReq.label)
+        if (reqIndex !== -1) {
+          // Prefer confirmed > conflict > missing
+          if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
+            cumulativeReqs[reqIndex].status = chatReq.status
+            cumulativeReqs[reqIndex].evidence = chatReq.evidence
+          } else if (chatReq.status === 'conflict' && cumulativeReqs[reqIndex].status !== 'confirmed') {
+            cumulativeReqs[reqIndex].status = chatReq.status
+            cumulativeReqs[reqIndex].evidence = chatReq.evidence
+          }
+        }
+      })
+    })
+
+    // Build cumulative analysis
+    const cumulative = {
+      requirements: cumulativeReqs,
+      next_question_chinese: '',
+      next_question_english: '',
+      supplier_notes: ''
+    }
+
+    // Get next_question from the last chat that has one
+    for (let i = allChats.length - 1; i >= 0; i--) {
+      if (allChats[i].ai_analysis?.next_question_chinese) {
+        cumulative.next_question_chinese = allChats[i].ai_analysis.next_question_chinese
+        cumulative.next_question_english = allChats[i].ai_analysis.next_question_english || ''
+        break
+      }
+    }
+
+    // Collect supplier notes from all chats
+    const notesList = []
+    allChats.forEach(chat => {
+      if (chat.ai_analysis?.supplier_notes && !notesList.includes(chat.ai_analysis.supplier_notes)) {
+        notesList.push(chat.ai_analysis.supplier_notes)
+      }
+    })
+    if (notesList.length > 0) {
+      cumulative.supplier_notes = notesList.join(' | ')
+    }
+
+    return cumulative
+  }
 
   const fetchData = async () => {
     try {
@@ -63,6 +126,12 @@ export default function SupplierAuditPage() {
       setChats(chatsData || [])
       setRequirements(requirementsData || [])
       setSuppliers(suppliersData || [])
+
+      // Calculate cumulative analysis from all chats
+      if (chatsData && chatsData.length > 0 && requirementsData) {
+        const cumulative = calculateCumulativeAnalysis(chatsData, requirementsData)
+        setCumulativeAnalysis(cumulative)
+      }
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err.message || 'Failed to load supplier data')
@@ -77,7 +146,7 @@ export default function SupplierAuditPage() {
 
     setAnalyzing(true)
     try {
-      const result = await analyzeChat(chatText, requirements)
+      const result = await analyzeChat(chatText, requirements, cumulativeAnalysis)
       setAnalysis(result)
 
       // Save chat
@@ -90,7 +159,13 @@ export default function SupplierAuditPage() {
         }])
         .select()
 
-      setChats([...chats, data[0]])
+      const newChats = [...chats, data[0]]
+      setChats(newChats)
+
+      // Update cumulative analysis with the new chat
+      const cumulative = calculateCumulativeAnalysis(newChats, requirements)
+      setCumulativeAnalysis(cumulative)
+
       setChatText('')
     } catch (error) {
       console.error('Error analyzing chat:', error)
@@ -222,8 +297,8 @@ export default function SupplierAuditPage() {
           </form>
         </div>
 
-        {/* Analysis Result */}
-        {analysis && (
+        {/* Analysis Result - Cumulative from all chats */}
+        {cumulativeAnalysis && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Analysis Result</h2>
 
@@ -231,7 +306,7 @@ export default function SupplierAuditPage() {
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Requirements Status</h3>
               <div className="grid gap-2">
-                {analysis.requirements?.map((req, idx) => (
+                {cumulativeAnalysis.requirements?.map((req, idx) => (
                   <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded">
                     <div
                       className={`w-4 h-4 rounded-full ${
@@ -252,16 +327,16 @@ export default function SupplierAuditPage() {
             </div>
 
             {/* Next Question */}
-            {analysis.next_question_chinese && (
+            {cumulativeAnalysis.next_question_chinese && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Next Question to Ask Supplier</h3>
 
                 {/* Chinese Version */}
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">🇨🇳 Chinese (Copy this)</h4>
-                  <p className="text-gray-700 mb-3 p-3 bg-white rounded border border-blue-200 font-medium">{analysis.next_question_chinese}</p>
+                  <p className="text-gray-700 mb-3 p-3 bg-white rounded border border-blue-200 font-medium">{cumulativeAnalysis.next_question_chinese}</p>
                   <button
-                    onClick={() => copyToClipboard(analysis.next_question_chinese)}
+                    onClick={() => copyToClipboard(cumulativeAnalysis.next_question_chinese)}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
                   >
                     <Copy size={16} /> Copy Chinese Question
@@ -269,31 +344,20 @@ export default function SupplierAuditPage() {
                 </div>
 
                 {/* English Translation */}
-                {analysis.next_question_english && (
+                {cumulativeAnalysis.next_question_english && (
                   <div className="pt-4 border-t border-blue-200">
                     <h4 className="text-sm font-semibold text-gray-700 mb-2">🇬🇧 English (For reference only)</h4>
-                    <p className="text-gray-600 italic">{analysis.next_question_english}</p>
+                    <p className="text-gray-600 italic">{cumulativeAnalysis.next_question_english}</p>
                   </div>
                 )}
               </div>
             )}
 
             {/* Supplier Notes */}
-            {analysis.supplier_notes && (
+            {cumulativeAnalysis.supplier_notes && (
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Supplier Notes</h3>
-
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">English</h4>
-                  <p className="text-gray-700">{analysis.supplier_notes}</p>
-                </div>
-
-                {analysis.supplier_notes_english && analysis.supplier_notes_english !== analysis.supplier_notes && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Chinese</h4>
-                    <p className="text-gray-700">{analysis.supplier_notes_english}</p>
-                  </div>
-                )}
+                <p className="text-gray-700">{cumulativeAnalysis.supplier_notes}</p>
               </div>
             )}
           </div>
