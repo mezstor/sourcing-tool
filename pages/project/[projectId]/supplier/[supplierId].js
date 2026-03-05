@@ -38,9 +38,17 @@ export default function SupplierAuditPage() {
     // Case-insensitive exact match
     if (s1 === s2) return 100
 
+    // Debug: Log matches that score >60
+    const debugMatch = (score, reason) => {
+      if (score > 60) {
+        console.log(`FUZZY MATCH: "${str1}" <-> "${str2}" = ${score} (${reason})`)
+      }
+      return score
+    }
+
     // Check if one contains the other (works for both languages)
-    if (s1.includes(s2) && s2.length > 1) return 85
-    if (s2.includes(s1) && s1.length > 1) return 85
+    if (s1.includes(s2) && s2.length > 1) return debugMatch(85, 'contains')
+    if (s2.includes(s1) && s1.length > 1) return debugMatch(85, 'contained_by')
 
     // For Latin: word overlap
     const latinWords1 = s1.match(/[a-z]+/g) || []
@@ -49,7 +57,7 @@ export default function SupplierAuditPage() {
       const overlap = latinWords1.filter(w => latinWords2.includes(w)).length
       if (overlap > 0) {
         const score = (overlap / Math.max(latinWords1.length, latinWords2.length)) * 80
-        if (score > 40) return score
+        if (score > 40) return debugMatch(score, `word_overlap: ${overlap}/${Math.max(latinWords1.length, latinWords2.length)}`)
       }
     }
 
@@ -60,13 +68,13 @@ export default function SupplierAuditPage() {
       const overlap = chineseChars1.filter(c => chineseChars2.includes(c)).length
       if (overlap > 0) {
         const score = (overlap / Math.max(chineseChars1.length, chineseChars2.length)) * 80
-        if (score > 40) return score
+        if (score > 40) return debugMatch(score, `char_overlap: ${overlap}/${Math.max(chineseChars1.length, chineseChars2.length)}`)
       }
     }
 
-    // Levenshtein distance for mixed content
+    // Levenshtein distance for mixed content (LOWERED THRESHOLD from 40 to 35 for better matching)
     const levenshteinScore = (1 - levenshteinDistance(s1, s2) / Math.max(s1.length, s2.length)) * 70
-    if (levenshteinScore > 40) return levenshteinScore
+    if (levenshteinScore > 35) return debugMatch(levenshteinScore, `levenshtein: ${levenshteinScore.toFixed(1)}`)
 
     return 0
   }
@@ -122,17 +130,23 @@ export default function SupplierAuditPage() {
           }
         })
 
-        // Only match if confidence is high (>60%)
-        if (bestMatch !== -1 && bestScore > 60) {
+        // Only match if confidence is high (>50% - lowered from 60% to catch more matches)
+        if (bestMatch !== -1 && bestScore > 50) {
           const reqIndex = bestMatch
           // Prefer confirmed > conflict > missing
           if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
             cumulativeReqs[reqIndex].status = chatReq.status
             cumulativeReqs[reqIndex].evidence = chatReq.evidence
+            console.log(`✅ MATCHED: AI req "${chatReq.label}" (${chatReq.status}) -> Master req "${cumulativeReqs[reqIndex].label}" [score: ${bestScore.toFixed(1)}]`)
           } else if (chatReq.status === 'conflict' && cumulativeReqs[reqIndex].status !== 'confirmed') {
             cumulativeReqs[reqIndex].status = chatReq.status
             cumulativeReqs[reqIndex].evidence = chatReq.evidence
+            console.log(`⚠️ CONFLICT UPDATED: AI req "${chatReq.label}" -> Master req "${cumulativeReqs[reqIndex].label}" [score: ${bestScore.toFixed(1)}]`)
           }
+        } else if (bestMatch === -1) {
+          console.log(`❌ NO MATCH for AI req: "${chatReq.label}" - would need score > 50`)
+        } else {
+          console.log(`⚠️ LOW SCORE for "${chatReq.label}": ${bestScore.toFixed(1)} (need > 50)`)
         }
       })
     })
@@ -474,25 +488,26 @@ export default function SupplierAuditPage() {
                     📅 {new Date(chat.created_at).toLocaleString()}
                   </p>
 
-                  {/* Chat Text */}
-                  <div className="bg-gray-50 rounded p-3 mb-3">
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{chat.raw_payload}</p>
+                  {/* Original Chat Text - PROMINENT */}
+                  <div className="bg-yellow-50 rounded-lg p-4 mb-3 border-2 border-yellow-200">
+                    <h5 className="text-xs font-bold text-yellow-900 mb-2 uppercase">📝 Original Chat (Raw Input)</h5>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap font-mono bg-white p-2 rounded border border-yellow-100">{chat.raw_payload}</p>
                   </div>
 
                   {/* Analysis if exists */}
                   {chat.ai_analysis && (
                     <div className="bg-blue-50 rounded-lg p-4 mt-3 border border-blue-200">
-                      <h4 className="font-semibold text-gray-900 mb-3">AI Analysis</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">🔍 AI Analysis (What it understood)</h4>
 
                       {/* Requirements Status */}
                       {chat.ai_analysis.requirements && (
                         <div className="mb-4">
-                          <h5 className="text-sm font-semibold text-gray-700 mb-2">Requirements:</h5>
-                          <div className="space-y-1">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-3">Requirements Matched:</h5>
+                          <div className="space-y-2">
                             {chat.ai_analysis.requirements.map((req, idx) => (
-                              <div key={idx} className="flex items-center gap-2 text-sm">
+                              <div key={idx} className="flex items-start gap-3 text-sm p-2 bg-white rounded border border-blue-100">
                                 <div
-                                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                  className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 ${
                                     req.status === 'confirmed'
                                       ? 'bg-green-500'
                                       : req.status === 'conflict'
@@ -500,7 +515,11 @@ export default function SupplierAuditPage() {
                                       : 'bg-gray-400'
                                   }`}
                                 />
-                                <span className="text-gray-700">{req.label}: <span className="text-gray-600 italic">{req.evidence}</span></span>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-gray-900">{req.label}</p>
+                                  <p className="text-xs font-semibold text-gray-500 mt-1">Status: {req.status === 'confirmed' ? '✅ CONFIRMED' : req.status === 'conflict' ? '❌ CONFLICT' : '⏳ MISSING'}</p>
+                                  {req.evidence && <p className="text-gray-700 italic mt-1">Evidence: "{req.evidence}"</p>}
+                                </div>
                               </div>
                             ))}
                           </div>
