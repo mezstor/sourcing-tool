@@ -15,17 +15,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    // Filter out unimportant requirements
-    const importantKeywords = ['mage', 'moq', 'price', 'cost', 'prototype', 'sample', 'size', 'dimension', 'box', 'material', 'color', 'payment', 'lead time', 'quantity', 'specification']
-    const filteredRequirements = masterRequirements.filter(r => {
-      const label = r.label.toLowerCase()
-      // Keep if matches important keywords or explicitly marked
-      return importantKeywords.some(k => label.includes(k)) || r.label.includes('MOQ') || r.label.includes('Images')
-    })
-
+    // Use ALL master requirements - don't filter out any user-specified requirements
     const prompt = 'You are a sourcing expert auditor for import/export operations.\n\n' +
       'MASTER REQUIREMENTS for this supplier:\n' +
-      filteredRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n') +
+      masterRequirements.map(r => `- ${r.label} (Status: ${r.status})`).join('\n') +
       '\n\nSUPPLIER CHAT TEXT:\n' +
       chatText +
       '\n\nAnalyze the chat and:\n' +

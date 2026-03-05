@@ -112,7 +112,7 @@ export default function Home() {
         {
           project_id: newProject.id,
           label: `MOQ: ${moq} units`,
-          status: 'confirmed'
+          status: 'pending'
         },
         ...specsList.map((spec) => ({
           project_id: newProject.id,
