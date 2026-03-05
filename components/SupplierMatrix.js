@@ -10,9 +10,10 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
       case 'conflict':
         return 'bg-red-500'
       case 'missing':
+      case 'pending':
         return 'bg-gray-400'
       default:
-        return 'bg-gray-300'
+        return 'bg-gray-400'
     }
   }
 
