@@ -38,9 +38,9 @@ export default async function handler(req, res) {
       chatText +
       '\n\nAnalyze the chat and:\n' +
       '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n' +
-      '   - CONFIRMED: Supplier explicitly agreed, confirmed, or accepted the requirement\n' +
-      '   - CONFLICT: Supplier explicitly said NO, cannot provide, refused, not available, not possible, doesn\'t work, etc.\n' +
-      '   - MISSING: Requirement not mentioned or discussed yet\n' +
+      '   - CONFIRMED: Supplier mentioned they HAVE it, CAN provide it, HAVE done it, or AGREED to it. Examples: "we have large", "we can provide", "we accept", "yes we have that", "we provide customization"\n' +
+      '   - CONFLICT: Supplier explicitly said NO, cannot provide, refused, not available, not possible, doesn\'t work, not offered, etc. Examples: "we cannot", "we don\'t have", "not possible", "we don\'t offer", "we don\'t do customization"\n' +
+      '   - MISSING: Requirement not mentioned or discussed yet in the chat\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
       '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted. The question should combine multiple grey items into one efficient message.\n' +
       '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       'Respond in JSON format:\n' +
       '{\n' +
       '  "requirements": [\n' +
-      '    { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note" }\n' +
+      '    { "label": "requirement name", "status": "confirmed|conflict|missing", "evidence": "brief quote or note from supplier" }\n' +
       '  ],\n' +
       '  "supplier_notes": "any extra info about the supplier",\n' +
       '  "supplier_notes_english": "English translation of supplier notes (if different from above)",\n' +
