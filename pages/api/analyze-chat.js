@@ -56,11 +56,13 @@ export default async function handler(req, res) {
       'PARTIAL STATUS (🟠 Orange/Yellow - answered but incomplete):\n' +
       '  - Supplier answered PART of the requirement but missing critical details\n' +
       '  - Example 1: Says "we have sample capability" BUT no price given → PARTIAL\n' +
-      '  - Example 2: Says "prototype price 22 RMB" BUT no lead time/startup cost → PARTIAL\n' +
+      '  - Example 2: Says "startup fee 200 RMB for prototype" = PARTIAL (has capability + startup cost, missing price/lead time)\n' +
+      '  - Example 3: Says "prototype price 22 RMB" BUT no lead time/startup cost → PARTIAL\n' +
       '  - For multi-part requirements like "Prototype/Sample capability and price (1-2 units)":\n' +
       '    - They said "capability available" BUT NOT price → PARTIAL\n' +
-      '    - They said "price 22 RMB" BUT NOT capability/lead time → PARTIAL\n' +
-      '  - Use PARTIAL when they answered but the requirement still needs follow-up details\n\n' +
+      '    - They said "startup cost 200" → PARTIAL (has cost, missing per-unit price and lead time)\n' +
+      '    - They said "price 22 RMB, lead time 30 days" BUT NOT capability/startup cost → PARTIAL\n' +
+      '  - DETECTION: Any mention of startup fee, price component, or capability component = partial answer\n\n' +
       'CONFIRMED STATUS INDICATORS (🟢 Green - ONLY when FULLY answered):\n' +
       '  - ONLY for simple yes/no requirements that are fully answered\n' +
       '  - "we have product photos" = CONFIRMED\n' +
@@ -72,24 +74,30 @@ export default async function handler(req, res) {
       '    - "price 20 RMB, lead time 30 days" = CONFIRMED (both parts answered)\n' +
       '  - Even with typos: "possibe" = possible, "costumized" = customized\n\n' +
       'CONFLICT STATUS (❌ Red - impossible):\n' +
-      '  - "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
+      '  - Direct negatives: "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
       '  - "we don\'t offer", "not available", "not in stock", "we don\'t provide"\n' +
-      '  - "only X" (implicit conflict for OTHER items). Example: "only purple" means red = CONFLICT\n' +
-      '  - SIZE MISMATCH: "we make 14-inch" + requirement "13-inch" = CONFLICT (they offer different size)\n' +
-      '  - MATERIAL MISMATCH: "we make plastic" + requirement "metal" = CONFLICT\n' +
-      '  - SPECIFICATION MISMATCH: Their stated capability ≠ requirement = CONFLICT\n\n' +
+      '  - "only X" (implicit conflict for OTHER items). Example: "only purple candles" = red = CONFLICT\n' +
+      '  - EXPLICIT SPEC MISMATCH (they mention a DIFFERENT specific value):\n' +
+      '    * Requirement "white shoes" + Supplier says "red shoes" = ❌ CONFLICT (color mismatch)\n' +
+      '    * Requirement "metal material" + Supplier says "plastic" = ❌ CONFLICT (material mismatch)\n' +
+      '    * Requirement "13-inch" + Supplier says "14-inch" = ❌ CONFLICT (size mismatch)\n' +
+      '    * Requirement "Nike brand" + Supplier says "Adidas" = ❌ CONFLICT (brand mismatch)\n' +
+      '  - KEY RULE: If supplier mentions a SPECIFIC value for the requirement that DIFFERS from what\'s needed = CONFLICT\n\n' +
       'MISSING STATUS (⏳ Grey - not mentioned):\n' +
       '  - Requirement not mentioned in the chat at all\n\n' +
       'IMPORTANT CONTEXT:\n' +
       '1. DISTINGUISH confirmed vs partial:\n' +
-      '   - CONFIRMED = full answer with details\n' +
-      '   - PARTIAL = they responded but some details missing\n' +
-      '   - Example: "can do prototype" (capability only) = PARTIAL (missing price/lead time)\n' +
-      '2. SIZE/MATERIAL/SPEC MISMATCH = CONFLICT:\n' +
-      '   - Supplier says "14 inch" but requirement is "13 inch" = CONFLICT\n' +
-      '   - Supplier says "plastic" but requirement is "metal" = CONFLICT\n' +
-      '   - This is explicit when they state a different specification\n' +
-      '3. "only X" logic: "only purple" → red = CONFLICT, green = CONFIRMED if mentioned\n\n' +
+      '   - CONFIRMED = full answer with ALL details\n' +
+      '   - PARTIAL = they responded but SOME details missing\n' +
+      '   - Example: "can do prototype, startup fee 200 RMB" = PARTIAL (has capability + startup cost, missing per-unit price and lead time)\n' +
+      '2. SPECIFICATION MISMATCHES = CONFLICT:\n' +
+      '   - "red shoes" vs requirement "white shoes" = CONFLICT (color mismatch)\n' +
+      '   - "14 inch" vs requirement "13 inch" = CONFLICT (size mismatch)\n' +
+      '   - "plastic" vs requirement "metal" = CONFLICT (material mismatch)\n' +
+      '   - "Adidas" vs requirement "Nike" = CONFLICT (brand mismatch)\n' +
+      '   - KEY: When they mention a DIFFERENT specific value = CONFLICT\n' +
+      '3. "only X" logic: "only purple" + requirement "red" = red = CONFLICT\n' +
+      '4. Startup fee mention = evidence for Prototype capability (mark as PARTIAL, not MISSING)\n\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
       '3. IMPORTANT: Generate ONE comprehensive follow-up question. Coverage:\n' +
       '   - Include ALL GREY items (not mentioned yet)\n' +
