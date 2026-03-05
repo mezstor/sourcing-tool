@@ -64,7 +64,29 @@ export default async function handler(req, res) {
       '    - "我们用石头做" → Material: stone\n' +
       '    - "只能做玻璃的" → Material: glass\n\n' +
 
-      '=== STEP 3: SEMANTIC MATCHING FOR REQUIREMENT SPECS ===\n' +
+      '=== STEP 3: CONTEXT-AWARE MATCHING (CRITICAL!) ===\n' +
+      'BEFORE comparing values, you MUST understand WHAT they apply to!\n' +
+      '\n' +
+      'CONTEXT UNDERSTANDING - Identify WHICH component/part the spec applies to:\n' +
+      '  Requirement: "5cm ring"\n' +
+      '    → Spec applies to: THE RING (not the box, not the container)\n' +
+      '  Supplier: "15cm x 15cm box"\n' +
+      '    → Spec applies to: THE BOX (not the ring inside)\n' +
+      '  RESULT: Different components → NO CONFLICT (5cm ring can fit in 15cm box)\n' +
+      '\n' +
+      '  Requirement: "Prototype capability (1-2 units)"\n' +
+      '    → What: Can make small samples\n' +
+      '  Supplier: "Production price: 8 RMB per unit for 250 units"\n' +
+      '    → What: Bulk production pricing (NOT prototype pricing!)\n' +
+      '  RESULT: Different production types → Prototype capability is STILL MISSING ⏳\n' +
+      '\n' +
+      '  Requirement: "Prototype price"\n' +
+      '    → What: Cost of 1-2 sample units\n' +
+      '  Supplier: "Prototype: 300 RMB each"\n' +
+      '    → What: Cost per sample unit\n' +
+      '  RESULT: Same component, same pricing level → CONFIRMED ✅ (or PARTIAL if no lead time)\n' +
+      '\n' +
+      '=== STEP 4: SEMANTIC MATCHING FOR REQUIREMENT SPECS ===\n' +
       'Use AI judgment (not hardcoded rules) for ANY requirement specification:\n' +
       'For EACH requirement with a specific value:\n' +
       '  1. Extract supplier value from message (e.g., "lavendel" from "we only make lavendel")\n' +
@@ -73,18 +95,20 @@ export default async function handler(req, res) {
       '     - Color: red, blue, green, yellow → all in same category\n' +
       '     - Material: cotton, linen, wool, polyester, artificial leather, glass, stone, metal → same category\n' +
       '     - Texture: smooth, rough, silky → same category\n' +
-      '     - Size/dimensions: any measurement values → same category\n' +
+      '     - Size/dimensions: any measurement values → same category (BUT CONTEXT MATTERS!)\n' +
       '     - And 1000 other possible specifications (taste, weight, shape, style, finish, etc.)\n' +
-      '  3. SEMANTIC COMPARISON:\n' +
-      '     - If supplier value = requirement value EXACTLY (or equivalent) → CONFIRMED ✅\n' +
+      '  3. SEMANTIC COMPARISON (WITH CONTEXT):\n' +
+      '     - If supplier value = requirement value EXACTLY (or equivalent) AND SAME COMPONENT → CONFIRMED ✅\n' +
       '       EXAMPLES: req="vanilla" + supplier="vanilla" → CONFIRMED\n' +
-      '       EXAMPLES: req="cotton" + supplier="cotton fabric" → CONFIRMED (equivalent)\n' +
-      '     - If supplier value ≠ requirement value BUT same category → CONFLICT 🔴\n' +
-      '       EXAMPLES: req="vanilla" + supplier="lavendel" → CONFLICT (both scents, but different)\n' +
-      '       EXAMPLES: req="red" + supplier="blue" → CONFLICT (both colors, but different)\n' +
-      '       EXAMPLES: req="cotton" + supplier="artificial leather" → CONFLICT (both materials, but different)\n' +
-      '     - If supplier did NOT mention this category at all → MISSING ⏳\n' +
-      '  4. CRITICAL: Use semantic reasoning, NOT string matching. The system must understand meaning.\n\n' +
+      '       EXAMPLES: req="cotton ring" + supplier="cotton ring" → CONFIRMED (equivalent)\n' +
+      '     - If supplier value ≠ requirement value BUT same category AND SAME COMPONENT → CONFLICT 🔴\n' +
+      '       EXAMPLES: req="5cm ring" + supplier="15cm ring" → CONFLICT (both ring sizes, but different)\n' +
+      '       EXAMPLES: req="vanilla flavor" + supplier="lavendel flavor" → CONFLICT (both flavors, different)\n' +
+      '     - If supplier value is for DIFFERENT COMPONENT → NOT A CONFLICT\n' +
+      '       EXAMPLES: req="5cm ring" + supplier="15cm box" → NO CONFLICT (different parts)\n' +
+      '       EXAMPLES: req="prototype" + supplier="bulk production price" → NO CONFLICT (different production types)\n' +
+      '     - If supplier did NOT mention this at all → MISSING ⏳\n' +
+      '  4. CRITICAL: Use semantic reasoning to UNDERSTAND CONTEXT first, then compare!\n\n' +
 
       '=== ANALYSIS RULES ===\n\n' +
 
@@ -97,11 +121,16 @@ export default async function handler(req, res) {
       '  • Material/Type match: requirement="cotton" + supplier offers "cotton" → Material = CONFIRMED\n\n' +
 
       '🟠 PARTIAL = Supplier gave SOME information but not everything needed:\n' +
-      '  • PROTOTYPE PRICE given = PROTOTYPE CAPABILITY is CONFIRMED ✅\n' +
-      '    - If supplier quotes prototype price (e.g., "300 RMB for prototype") → they CAN make it!\n' +
-      '    - Prototype capability = CONFIRMED ✅\n' +
-      '    - Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
-      '    - NEVER ask for "prototype price" again if already given!\n' +
+      '  • PROTOTYPE PRICE (not production price!) given = PROTOTYPE CAPABILITY is CONFIRMED ✅\n' +
+      '    - CONTEXT MATTERS: "300 RMB prototype" ≠ "8 RMB per unit for 250 pieces"\n' +
+      '    - "Prototype price: 300 RMB" OR "We can make samples for 300 RMB" → they CAN make prototypes!\n' +
+      '      → Prototype capability = CONFIRMED ✅\n' +
+      '      → Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
+      '    - "Production price: 8 RMB per unit for 250 pieces" → this is BULK pricing, NOT prototype pricing!\n' +
+      '      → Prototype capability = STILL MISSING ⏳ (you must ask!)\n' +
+      '      → Production pricing is different from prototype pricing\n' +
+      '    - NEVER ask "can you make prototypes?" if they already quoted PROTOTYPE price!\n' +
+      '    - ALWAYS ask "can you make prototypes?" if they only quoted PRODUCTION/BULK price!\n' +
       '  • "Will send" / "Will do" = PARTIAL (promise, not yet delivered)\n' +
       '    - "我马上发图片" / "I will send photos" = promise to send → Images = PARTIAL 🟠\n' +
       '    - NOT MISSING (they promised) but NOT CONFIRMED (not yet done)\n' +
@@ -133,11 +162,13 @@ export default async function handler(req, res) {
       '    - Texture: req="smooth" supplier="rough" → both textures, different → CONFLICT 🔴\n' +
       '    - Style: req="modern" supplier="vintage" → both styles, different → CONFLICT 🔴\n' +
       '    - Weight: req="lightweight" supplier="heavy" → same scale, different → CONFLICT 🔴\n' +
-      '  • SIZE/DIMENSION MISMATCH = CONFLICT 🔴 (CRITICAL!)\n' +
-      '    - ALWAYS compare numeric dimensions when mentioned\n' +
-      '    - req="5cm" supplier="15cm" → DIFFERENT SIZES → CONFLICT 🔴\n' +
-      '    - req="10 units (MOQ)" supplier="400 units" → DIFFERENT QUANTITIES → CONFLICT 🔴\n' +
-      '    - req="small" supplier="extra large" → DIFFERENT SCALES → CONFLICT 🔴\n' +
+      '  • SIZE/DIMENSION MISMATCH = CONFLICT 🔴 (ONLY IF SAME COMPONENT!)\n' +
+      '    - CONTEXT CRITICAL: Compare dimensions for THE SAME PART only!\n' +
+      '    - req="5cm ring" supplier="15cm ring" → SAME COMPONENT (ring) DIFFERENT SIZE → CONFLICT 🔴\n' +
+      '    - req="5cm ring" supplier="15cm x 15cm box" → DIFFERENT COMPONENTS (ring vs box) → NO CONFLICT\n' +
+      '    - req="10 units (MOQ)" supplier="400 units" → DIFFERENT PRODUCTION LEVELS → CONFLICT 🔴 (for standard orders)\n' +
+      '    - req="10 units (prototype MOQ)" supplier="400 units (production MOQ)" → DIFFERENT LEVELS → NO CONFLICT\n' +
+      '    - req="small" supplier="extra large" → SAME COMPONENT DIFFERENT SIZE → CONFLICT 🔴\n' +
       '  • EXPLICIT REFUSAL = CONFLICT 🔴\n' +
       '    - Chinese: "不做"=don\'t make, "不能"=cannot, "无法"=unable, "没有"=don\'t have\n' +
       '    - "我们不做原型" = "we do NOT make prototypes" → CONFLICT 🔴\n' +
@@ -149,29 +180,36 @@ export default async function handler(req, res) {
       '⏳ MISSING = Supplier did not mention this at all\n\n' +
 
       '=== CRITICAL RULES ===\n' +
-      '0. SEMANTIC MATCHING for any requirement specification:\n' +
+      '0. CONTEXT IS KING - Always understand WHAT before comparing VALUES:\n' +
+      '   - "5cm ring" ≠ "5cm box" - different components\n' +
+      '   - "Prototype price" ≠ "Production price" - different production levels\n' +
+      '   - "Ring size 5cm" ≠ "Box size 15cm" - different parts, no conflict\n' +
+      '   - "Prototype price 300 RMB" ≠ "Production price 8 RMB per 250 units" - different levels\n' +
+      '1. SEMANTIC MATCHING for any requirement specification:\n' +
       '   - Always use AI JUDGMENT, not hardcoded string matching\n' +
       '   - Understand what category the specification is (scent, color, material, texture, style, size, etc.)\n' +
-      '   - If supplier offers something in the SAME CATEGORY but DIFFERENT VALUE → CONFLICT 🔴\n' +
+      '   - If supplier offers something in the SAME CATEGORY, SAME COMPONENT, but DIFFERENT VALUE → CONFLICT 🔴\n' +
       '   - This works for 1000+ different specification types without any new code\n' +
-      '   - Example: requirement="vanilla" + supplier="lavendel" → CONFLICT 🔴 (both scents, different)\n' +
-      '   - Example: requirement="cotton" + supplier="artificial leather" → CONFLICT 🔴 (both materials, different)\n' +
-      '   - Example: "We can make prototypes of artificial leather" + requirement "cotton" = capability CONFIRMED but material CONFLICT 🔴\n' +
-      '1. PROTOTYPE PRICE = CAPABILITY CONFIRMED:\n' +
-      '   - If supplier gives prototype price/cost → they CAN make prototypes\n' +
-      '   - "原型价格为300元" = "prototype price 300" → Prototype capability = CONFIRMED ✅\n' +
-      '   - Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
-      '   - NEVER ask "can you make prototypes?" if they already quoted a price!\n' +
-      '2. PROMISES vs DELIVERY:\n' +
+      '   - Example: requirement="vanilla ring" + supplier="lavendel ring" → CONFLICT 🔴 (same part, different value)\n' +
+      '   - Example: requirement="cotton ring" + supplier="artificial leather ring" → CONFLICT 🔴 (same part, different value)\n' +
+      '   - Example: requirement="cotton ring" + supplier="cotton box" → NO CONFLICT (different parts)\n' +
+      '2. PROTOTYPE PRICE vs PRODUCTION PRICE:\n' +
+      '   - "Prototype price 300 RMB" = they CAN make prototypes!\n' +
+      '     → Prototype capability = CONFIRMED ✅\n' +
+      '     → Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
+      '   - "Production price 8 RMB per unit for 250 pieces" = BULK pricing, NOT prototype pricing!\n' +
+      '     → Prototype capability = STILL MISSING ⏳ (you MUST ask!)\n' +
+      '   - CONTEXT MATTERS: These are different production types!\n' +
+      '3. PROMISES vs DELIVERY:\n' +
       '   - "我马上发图片" / "I will send photos" = PARTIAL 🟠 (promise made, awaiting delivery)\n' +
       '   - "我们有图片" / "We have photos" = CONFIRMED ✅ (already have)\n' +
       '   - "我会定制" / "We can customize" = CONFIRMED ✅ (capability)\n' +
       '   - Note: If photos sent OUTSIDE chat, they cannot be shown as CONFIRMED in the app (not text)\n' +
-      '3. SIZE CONFLICTS (CRITICAL!):\n' +
-      '   - ALWAYS detect numeric dimension mismatches\n' +
-      '   - req="5cm" + supplier="15cm" → CONFLICT 🔴\n' +
-      '   - req="10 units MOQ" + supplier="400 units" → CONFLICT 🔴\n' +
-      '   - req="small" + supplier="extra large" → CONFLICT 🔴\n' +
+      '4. SIZE CONFLICTS (CONTEXT DEPENDENT!):\n' +
+      '   - ONLY conflict if same component has different size!\n' +
+      '   - req="5cm ring" + supplier="15cm ring" → CONFLICT 🔴 (same component, different size)\n' +
+      '   - req="5cm ring" + supplier="15cm box" → NO CONFLICT (different components)\n' +
+      '   - req="small product" + supplier="large product" → CONFLICT 🔴 (same component, different size)\n' +
       '4. LOCKED statuses (confirmed/conflict) NEVER change\n' +
       '5. PARTIAL statuses CAN upgrade to CONFIRMED if new chat provides the missing details\n' +
       '6. Never copy old evidence - always write fresh evidence based on the new chat + overall conversation\n' +
@@ -237,23 +275,37 @@ export default async function handler(req, res) {
       '    - Same category? YES → both are materials\n' +
       '    - Same value? NO → glass ≠ stone\n' +
       '  RESULT: Material = CONFLICT 🔴 (supplier offers different material)\n\n' +
-      'EXAMPLE 5 - Requirement: "Prototype/Sample capability & Prototype/Sample price & lead time":\n' +
-      '  Supplier says: "原型价格为300元人民币" (prototype price 300 RMB)\n' +
-      '  CRITICAL LOGIC:\n' +
-      '    - If they give PRICE → they CAN make it!\n' +
-      '    - Prototype capability = CONFIRMED ✅ (they gave a price, so they can do it!)\n' +
-      '    - Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
-      '  RESULT: Prototype capability = CONFIRMED ✅, Prototype price & lead time = PARTIAL 🟠\n' +
-      '  NEXT QUESTION: Only ask for LEAD TIME, NOT for "can you make prototypes?" or "what is the price?"\n\n' +
-      'EXAMPLE 6 - Requirement: "5cm size" vs Supplier stock "15cm rings":\n' +
-      '  Supplier says: "我们只有15厘米的塑料环" (we only have 15cm plastic rings)\n' +
-      '  SIZE MISMATCH ANALYSIS:\n' +
-      '    - Category: SIZE/DIMENSION (both are size values)\n' +
-      '    - Requirement: 5cm\n' +
-      '    - Supplier: 15cm\n' +
-      '    - Numeric mismatch? YES → 15 ≠ 5\n' +
-      '    - Supplier says "ONLY" 15cm → cannot make 5cm\n' +
-      '  RESULT: Size = CONFLICT 🔴 (supplier only has 15cm, not 5cm)'
+      'EXAMPLE 5 - CONTEXT CRITICAL: "Prototype price 300 RMB" vs "Production price 8 RMB per 250":\n' +
+      '  Requirements: Prototype capability, Prototype price & lead time\n' +
+      '  Supplier says: "原型价格为300元人民币" (prototype price 300 RMB each)\n' +
+      '    → CONTEXT: This is PROTOTYPE pricing, not production pricing!\n' +
+      '    → Prototype capability = CONFIRMED ✅ (they quoted prototype price!)\n' +
+      '    → Prototype price & lead time = PARTIAL 🟠 (price given, lead time missing)\n' +
+      '  RESULT: Prototype capability = CONFIRMED ✅, Prototype price = PARTIAL 🟠\n' +
+      '  NEXT QUESTION: Only ask for LEAD TIME!\n' +
+      '  ----\n' +
+      '  WRONG SCENARIO - Supplier says: "生产价格：250件起，每件8元" (Production: 250 min, 8 RMB each)\n' +
+      '    → CONTEXT: This is PRODUCTION pricing, NOT prototype pricing!\n' +
+      '    → Prototype capability = STILL MISSING ⏳ (we DON\'T know if they can make 1-2 samples!)\n' +
+      '    → Prototype price & lead time = MISSING ⏳\n' +
+      '  RESULT: These are different production levels! Must still ask about prototype capability!\n\n' +
+      'EXAMPLE 6 - CONTEXT CRITICAL: "5cm ring" vs "15cm x 15cm box":\n' +
+      '  Requirements: Ring size 5cm\n' +
+      '  Supplier says: "我们有5厘米的环和15厘米x15厘米的盒子" (we have 5cm rings and 15cm x 15cm boxes)\n' +
+      '    → CONTEXT: Ring size = 5cm ✅, Box size = 15cm (DIFFERENT COMPONENTS)\n' +
+      '    → Ring size = CONFIRMED ✅\n' +
+      '  RESULT: No conflict! Ring matches 5cm requirement. Box is different component.\n' +
+      '  ----\n' +
+      '  CONFLICT SCENARIO - Supplier says: "我们只有15厘米的塑料环" (we only have 15cm plastic rings)\n' +
+      '    → CONTEXT: Ring size = 15cm, but requirement = 5cm (SAME COMPONENT)\n' +
+      '    → Ring size = CONFLICT 🔴 (supplier can\'t provide 5cm, only 15cm)\n' +
+      '  RESULT: This IS a conflict! Different sizes for the SAME part!\n\n' +
+      'EXAMPLE 7 - NO CONFLICT: "5cm ring" vs "15cm packaging":\n' +
+      '  Requirements: Product ring size 5cm\n' +
+      '  Supplier says: "环是5厘米的，包装盒是15厘米" (ring is 5cm, packaging box is 15cm)\n' +
+      '    → CONTEXT: Ring = 5cm ✅ (matches requirement), Box = 15cm (different part)\n' +
+      '    → Ring size = CONFIRMED ✅\n' +
+      '  RESULT: No conflict! Compare SAME components only!'
 
     const message = await client.chat.completions.create({
       model: 'gpt-3.5-turbo',
