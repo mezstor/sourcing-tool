@@ -488,25 +488,26 @@ export default function SupplierAuditPage() {
                     📅 {new Date(chat.created_at).toLocaleString()}
                   </p>
 
-                  {/* Chat Text */}
-                  <div className="bg-gray-50 rounded p-3 mb-3">
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{chat.raw_payload}</p>
+                  {/* Original Chat Text - PROMINENT */}
+                  <div className="bg-yellow-50 rounded-lg p-4 mb-3 border-2 border-yellow-200">
+                    <h5 className="text-xs font-bold text-yellow-900 mb-2 uppercase">📝 Original Chat (Raw Input)</h5>
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap font-mono bg-white p-2 rounded border border-yellow-100">{chat.raw_payload}</p>
                   </div>
 
                   {/* Analysis if exists */}
                   {chat.ai_analysis && (
                     <div className="bg-blue-50 rounded-lg p-4 mt-3 border border-blue-200">
-                      <h4 className="font-semibold text-gray-900 mb-3">AI Analysis</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">🔍 AI Analysis (What it understood)</h4>
 
                       {/* Requirements Status */}
                       {chat.ai_analysis.requirements && (
                         <div className="mb-4">
-                          <h5 className="text-sm font-semibold text-gray-700 mb-2">Requirements:</h5>
-                          <div className="space-y-1">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-3">Requirements Matched:</h5>
+                          <div className="space-y-2">
                             {chat.ai_analysis.requirements.map((req, idx) => (
-                              <div key={idx} className="flex items-center gap-2 text-sm">
+                              <div key={idx} className="flex items-start gap-3 text-sm p-2 bg-white rounded border border-blue-100">
                                 <div
-                                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                  className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 ${
                                     req.status === 'confirmed'
                                       ? 'bg-green-500'
                                       : req.status === 'conflict'
@@ -514,7 +515,11 @@ export default function SupplierAuditPage() {
                                       : 'bg-gray-400'
                                   }`}
                                 />
-                                <span className="text-gray-700">{req.label}: <span className="text-gray-600 italic">{req.evidence}</span></span>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-gray-900">{req.label}</p>
+                                  <p className="text-xs font-semibold text-gray-500 mt-1">Status: {req.status === 'confirmed' ? '✅ CONFIRMED' : req.status === 'conflict' ? '❌ CONFLICT' : '⏳ MISSING'}</p>
+                                  {req.evidence && <p className="text-gray-700 italic mt-1">Evidence: "{req.evidence}"</p>}
+                                </div>
                               </div>
                             ))}
                           </div>
