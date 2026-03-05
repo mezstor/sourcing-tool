@@ -16,6 +16,7 @@ export default function SupplierAuditPage() {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [suppliers, setSuppliers] = useState([])
 
   useEffect(() => {
     if (router.query.projectId && router.query.supplierId) {
@@ -50,9 +51,17 @@ export default function SupplierAuditPage() {
 
       if (requirementsError) throw requirementsError
 
+      const { data: suppliersData, error: suppliersError } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('project_id', projectId)
+
+      if (suppliersError) throw suppliersError
+
       setSupplier(supplierData)
       setChats(chatsData || [])
       setRequirements(requirementsData || [])
+      setSuppliers(suppliersData || [])
     } catch (err) {
       console.error('Error fetching data:', err)
       setError(err.message || 'Failed to load supplier data')
