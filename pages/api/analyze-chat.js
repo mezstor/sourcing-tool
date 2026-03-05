@@ -46,18 +46,30 @@ export default async function handler(req, res) {
       'CONFLICT STATUS INDICATORS:\n' +
       '  - "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
       '  - "we don\'t offer", "not available", "not in stock", "we don\'t provide"\n' +
-      '  - "no customization", "no printing", "cannot be done"\n\n' +
+      '  - "no customization", "no printing", "cannot be done"\n' +
+      '  - "only X" (implicit conflict for OTHER items). Example: "only purple candles" means red candles = CONFLICT\n' +
+      '  - "we don\'t have X", "no X" (explicit conflict)\n\n' +
       'MISSING STATUS:\n' +
       '  - Requirement not mentioned in the chat at all\n\n' +
-      'IMPORTANT: Look at the FULL context. If supplier says "we have no glass but customization is possible", then:\n' +
-      '  - glass = CONFLICT (they said they don\'t have it)\n' +
-      '  - customized printing = CONFIRMED (they said "possible/can do")\n' +
-      '  - Do NOT confuse them\n\n' +
+      'IMPORTANT CONTEXT RULES:\n' +
+      '1. If supplier says "we have no glass but customization is possible", then:\n' +
+      '   - glass = CONFLICT (they said they don\'t have it)\n' +
+      '   - customized printing = CONFIRMED (they said "possible/can do")\n' +
+      '   - Do NOT confuse them\n' +
+      '2. If supplier says "only purple" and you have requirement for "red candles":\n' +
+      '   - red candles = CONFLICT (they only have purple)\n' +
+      '3. Be careful with vague responses like "can do" or "can" - if no specific details are given about WHICH items they can do, mark those requirements as MISSING (not yet discussed in detail)\n\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
-      '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted. The question should combine multiple grey items into one efficient message.\n' +
+      '3. IMPORTANT: Generate ONE comprehensive question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted.\n' +
+      '   - If there are 3+ GREY items: Use NUMBERED LIST format to force clear yes/no answers from supplier\n' +
+      '   - Format: "能否逐条确认以下内容:" (Can you please confirm item by item:) followed by numbered items\n' +
+      '   - This prevents vague responses like "can do" and gets specific answers\n' +
+      '   - Example: "能否逐条确认以下内容: 1. 红色蜡烛 - 可以提供吗? 2. 蜂蜡 - 可以提供吗? 3. 产品照片 - 有吗?"\n' +
+      '   - If there are 1-2 GREY items: Use natural conversational format\n' +
       '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
       '5. Generate BOTH Chinese AND English versions of the question\n\n' +
-      'Example format for multi-part question in Chinese: "请问贵司在100件起订量下的价格是多少，样品/小批量价格如何，起样成本及交期各多少？"\n\n' +
+      'Example format for numbered question in Chinese: "能否逐条确认以下内容: 1. 红色蜡烛 - 可以提供吗? 2. 蜂蜡 - 可以提供吗? 3. 定制印刷 - 可以吗?"\n' +
+      'Example format for conversational in Chinese: "请问贵司能否提供产品照片？"\n\n' +
       'Respond in JSON format:\n' +
       '{\n' +
       '  "requirements": [\n' +
