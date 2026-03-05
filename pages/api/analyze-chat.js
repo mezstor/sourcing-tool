@@ -33,23 +33,54 @@ export default async function handler(req, res) {
       if (partial) previousContext += `\n\nPARTIAL FROM PREVIOUS CHATS (re-evaluate - may upgrade to CONFIRMED):\n${partial}`
     }
 
-    const requirementsList = masterRequirements.map(r => `- "${r.label}"`).join('\n')
+    const requirementsList = masterRequirements.map(r => {
+      const detail = r.value ? ` (${r.value})` : ''
+      return `- "${r.label}"${detail}`
+    }).join('\n')
 
     const prompt =
       'You are a strict sourcing auditor checking supplier responses against requirements.\n\n' +
       '=== MASTER REQUIREMENTS ===\n' +
+      'These are the specifications your client needs. Some have specific values (e.g., Material=cotton), others are capabilities (can you make it?).\n' +
       requirementsList +
       previousContext +
       '\n\n=== NEW SUPPLIER CHAT (analyze this carefully) ===\n' +
       chatText +
-      '\n\n=== ANALYSIS RULES ===\n\n' +
+      '\n\n=== STEP 1: UNDERSTAND REQUIREMENT SPECS ===\n' +
+      'Requirements can have specific values. Examples:\n' +
+      '  • Material = "cotton" (requirement specifies material)\n' +
+      '  • Product Type = "dog rope" (requirement specifies type)\n' +
+      '  • MOQ = "10 units" (requirement specifies minimum quantity)\n' +
+      'Compare supplier offers AGAINST these specs.\n\n' +
 
-      '✅ CONFIRMED = Supplier clearly said YES or gave a specific value that matches:\n' +
+      '=== STEP 2: PRODUCT SPECIFICATION EXTRACTION ===\n' +
+      'Extract what supplier actually offers:\n' +
+      '  • MATERIAL: What material are they offering? (e.g., artificial leather, cotton, stone, glass, plastic, metal)\n' +
+      '  • TYPE/MODEL: What exact product type? (e.g., cat rope vs dog rope, glass bottle vs plastic bottle)\n' +
+      '  • PROPERTIES: Any other key properties (color, size, style, etc.)\n' +
+      '  EXAMPLES:\n' +
+      '    - "我们只能做人造革材质的牵引绳" → Material: artificial leather, Type: leash/rope\n' +
+      '    - "我们只做猫绳" → Type: cat rope/leash\n' +
+      '    - "我们用石头做" → Material: stone\n' +
+      '    - "只能做玻璃的" → Material: glass\n\n' +
+
+      '=== STEP 3: MATCH SUPPLIER SPECS AGAINST REQUIREMENTS ===\n' +
+      'For EACH requirement spec:\n' +
+      '  1. Extract supplier value (e.g., "artificial leather" from message)\n' +
+      '  2. Compare against requirement value (e.g., "cotton")\n' +
+      '  3. Do they match? → CONFIRMED ✅\n' +
+      '  4. Do they NOT match? → CONFLICT 🔴\n' +
+      '  UNIVERSAL for ANY product - works for materials, types, colors, sizes, etc.\n\n' +
+
+      '=== ANALYSIS RULES ===\n\n' +
+
+      '✅ CONFIRMED = Supplier clearly said YES or gave a specific value that matches requirement:\n' +
       '  • Capability requirements: supplier said "可以做" / "能做" / "we can make" / "we offer this" → CONFIRMED\n' +
       '    - "原型机可以做" = "we CAN make prototypes" → Prototype/Sample CAPABILITY = CONFIRMED\n' +
       '    - "我们可以定制" = "we can customize" → Customization = CONFIRMED\n' +
       '  • Simple yes: "we have photos" / "有图片" → Images = CONFIRMED\n' +
-      '  • MOQ match: requirement "10 units" + supplier "最低10件" → MOQ = CONFIRMED\n\n' +
+      '  • MOQ match: requirement "10 units" + supplier "最低10件" → MOQ = CONFIRMED\n' +
+      '  • Material/Type match: requirement="cotton" + supplier offers "cotton" → Material = CONFIRMED\n\n' +
 
       '🟠 PARTIAL = Supplier gave SOME information but not everything needed:\n' +
       '  • Price mentioned but lead time missing → price & lead time = PARTIAL\n' +
@@ -68,19 +99,29 @@ export default async function handler(req, res) {
       '    EXAMPLE: "起价200元人民币" → price & lead time = PARTIAL (price given, lead time missing)\n' +
       '    EXAMPLE: "单价22块" → price & lead time = PARTIAL (price given, lead time missing)\n\n' +
 
-      '❌ CONFLICT = Supplier said NO or gave a DIFFERENT value than required:\n' +
-      '  • Chinese NO words: "不做"=do not make, "不能"=cannot, "无法"=unable, "没有"=don\'t have, "不提供"=don\'t provide\n' +
-      '    - "我们不做原型" = "we do NOT make prototypes" → Prototype CAPABILITY = CONFLICT\n' +
-      '  • English NO: "we cannot", "not possible", "we don\'t have", "not available"\n' +
-      '  • Color mismatch: requirement="yellow", supplier said "only green" → yellow = CONFLICT\n' +
-      '  • Material mismatch: requirement="plastic", supplier said "only metal" → plastic = CONFLICT\n' +
-      '  • Size mismatch: requirement="20cm", supplier said "30cm" → CONFLICT\n' +
-      '  • MOQ mismatch: requirement="10 units", supplier said "minimum 1000" → CONFLICT\n' +
-      '  • "Only X" = CONFLICT for everything that is NOT X\n\n' +
+      '❌ CONFLICT = Supplier said NO or gave a DIFFERENT value than required (RED STATUS):\n' +
+      '  UNIVERSAL MISMATCH RULES (works for ANY product type):\n' +
+      '  • Material mismatch: req="cotton" supplier="artificial leather" → CONFLICT 🔴\n' +
+      '  • Material mismatch: req="glass" supplier="stone" → CONFLICT 🔴\n' +
+      '  • Material mismatch: req="gold" supplier="silver" → CONFLICT 🔴\n' +
+      '  • Type mismatch: req="dog rope" supplier="only cat rope" → CONFLICT 🔴\n' +
+      '  • Type mismatch: req="plastic bottle" supplier="glass bottle" → CONFLICT 🔴\n' +
+      '  • "Only X" statement = CONFLICT for requirements that are NOT X\n' +
+      '  NO WORDS (supplier explicitly cannot make it):\n' +
+      '  • Chinese: "不做"=don\'t make, "不能"=cannot, "无法"=unable, "没有"=don\'t have, "不提供"=don\'t provide\n' +
+      '    - "我们不做原型" = "we do NOT make prototypes" → Prototype CAPABILITY = CONFLICT 🔴\n' +
+      '  • English: "we cannot", "not possible", "we don\'t have", "not available"\n' +
+      '  • Explicit mismatch: "我们只能做人造革，不能做棉布" = can ONLY make artificial leather, NOT cotton → CONFLICT 🔴\n' +
+      '  • Value mismatch: requirement="10 units", supplier="minimum 1000" → CONFLICT 🔴\n\n' +
 
       '⏳ MISSING = Supplier did not mention this at all\n\n' +
 
       '=== CRITICAL RULES ===\n' +
+      '0. ALWAYS check product specs FIRST (material, type, properties):\n' +
+      '   - Extract what supplier is offering\n' +
+      '   - Compare against requirement specs\n' +
+      '   - If specs don\'t match → CONFLICT 🔴 regardless of capabilities\n' +
+      '   - Example: "We can make prototypes of artificial leather" + requirement "cotton" = capability CONFIRMED but material CONFLICT 🔴\n' +
       '1. CAPABILITY vs PRICE are separate requirements:\n' +
       '   - "Prototype capability" = can they make it? YES/NO → use CONFIRMED/CONFLICT\n' +
       '   - "Prototype price & lead time" = what does it cost and how long? → use PARTIAL if only price, CONFIRMED if both\n' +
@@ -111,7 +152,22 @@ export default async function handler(req, res) {
       '  "supplier_notes_english": "English translation",\n' +
       '  "next_question_chinese": "ONE comprehensive question in Chinese covering ALL missing/partial items",\n' +
       '  "next_question_english": "English translation"\n' +
-      '}'
+      '}\n\n' +
+      'EXAMPLE - Requirement: "Cotton dog rope":\n' +
+      '  Supplier says: "我们只能做人造革材质的牵引绳" (only artificial leather leashes)\n' +
+      '  PRODUCT SPEC: Material=artificial leather, Type=leash\n' +
+      '  ANALYSIS:\n' +
+      '    - Prototype capability: "可以做" → CONFIRMED ✅\n' +
+      '    - Material: requirement "cotton" vs supplier "artificial leather" → CONFLICT 🔴\n' +
+      '    - Type: both are ropes/leashes → CONFIRMED ✅\n' +
+      '  EVIDENCE: "Supplier explicitly states only artificial leather (人造革), not cotton"\n' +
+      '  STATUS: Material = CONFLICT 🔴 (RED)\n\n' +
+      'EXAMPLE - Requirement: "Glass product":\n' +
+      '  Supplier says: "我们只用石头做" (we only make stone)\n' +
+      '  PRODUCT SPEC: Material=stone\n' +
+      '  ANALYSIS: requirement "glass" vs supplier "stone" → CONFLICT 🔴\n' +
+      '  EVIDENCE: "Supplier only offers stone products, not glass"\n' +
+      '  STATUS: Material = CONFLICT 🔴 (RED)'
 
     const message = await client.chat.completions.create({
       model: 'gpt-3.5-turbo',
