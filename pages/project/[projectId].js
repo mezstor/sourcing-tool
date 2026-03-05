@@ -126,22 +126,36 @@ export default function ProjectPage() {
     if (!newSupplierName.trim() || !newSupplierUrl.trim()) return
 
     setSaving(true)
+
+    // Clear inputs immediately for better UX
+    const supplierName = newSupplierName
+    const supplierUrl = newSupplierUrl
+    setNewSupplierName('')
+    setNewSupplierUrl('')
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('suppliers')
         .insert([{
           project_id: projectId,
-          nickname: newSupplierName,
-          url: newSupplierUrl,
+          nickname: supplierName,
+          url: supplierUrl,
           total_score: 0
         }])
         .select()
 
-      setSuppliers([...suppliers, data[0]])
-      setNewSupplierName('')
-      setNewSupplierUrl('')
+      if (error) throw error
+
+      // Update suppliers list
+      if (data && data[0]) {
+        setSuppliers([...suppliers, data[0]])
+      }
     } catch (error) {
       console.error('Error adding supplier:', error)
+      alert('Error adding supplier: ' + error.message)
+      // Reset inputs on error
+      setNewSupplierName(supplierName)
+      setNewSupplierUrl(supplierUrl)
     } finally {
       setSaving(false)
     }

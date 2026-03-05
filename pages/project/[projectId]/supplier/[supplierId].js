@@ -88,10 +88,16 @@ export default function SupplierAuditPage() {
   }
 
   const fetchData = async () => {
+    // Safety check
+    if (!supplierId || !projectId) {
+      setError('Missing supplier or project ID')
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
-      setChats([]) // Reset chats state when switching suppliers
 
       const { data: supplierData, error: supplierError } = await supabase
         .from('suppliers')
@@ -105,6 +111,7 @@ export default function SupplierAuditPage() {
         .from('chats')
         .select('*')
         .eq('supplier_id', supplierId)
+        .order('created_at', { ascending: true })
 
       if (chatsError) throw chatsError
 
@@ -131,6 +138,8 @@ export default function SupplierAuditPage() {
       if (chatsData && chatsData.length > 0 && requirementsData) {
         const cumulative = calculateCumulativeAnalysis(chatsData, requirementsData)
         setCumulativeAnalysis(cumulative)
+      } else {
+        setCumulativeAnalysis(null)
       }
     } catch (err) {
       console.error('Error fetching data:', err)
@@ -144,13 +153,19 @@ export default function SupplierAuditPage() {
     e.preventDefault()
     if (!chatText.trim()) return
 
+    // Safety check: ensure supplierId is available
+    if (!supplierId) {
+      alert('Supplier ID not loaded. Please refresh the page.')
+      return
+    }
+
     setAnalyzing(true)
     try {
       const result = await analyzeChat(chatText, requirements, cumulativeAnalysis)
       setAnalysis(result)
 
-      // Save chat
-      const { data } = await supabase
+      // Save chat with explicit supplierId check
+      const { data, error } = await supabase
         .from('chats')
         .insert([{
           supplier_id: supplierId,
@@ -158,6 +173,9 @@ export default function SupplierAuditPage() {
           ai_analysis: result
         }])
         .select()
+
+      if (error) throw error
+      if (!data || !data[0]) throw new Error('Chat save failed')
 
       const newChats = [...chats, data[0]]
       setChats(newChats)

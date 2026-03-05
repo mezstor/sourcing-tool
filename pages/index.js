@@ -70,44 +70,57 @@ export default function Home() {
       return
     }
 
+    // Clear inputs immediately for faster UX feedback
+    const projectNameCopy = projectName
+    const moqCopy = moq
+    const specificationsCopy = specifications
+    setProjectName('')
+    setMoq('')
+    setSpecifications('')
+
     setLoading(true)
     try {
-      // Parse specifications from comma-separated input, handle empty/null safely
-      let specsList = (specifications || '')
+      // Parse specifications from comma-separated input
+      let specsList = (specificationsCopy || '')
         .split(',')
         .map(s => s.trim())
         .filter(s => s.length > 0)
 
-      // If using AI, generate and combine specifications
+      // If using AI, generate and combine specifications (parallel with project creation)
+      let aiSpecsPromise = Promise.resolve([])
       if (useAI) {
-        try {
-          const response = await fetch('/api/generate-specs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectName })
+        aiSpecsPromise = fetch('/api/generate-specs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName: projectNameCopy })
+        })
+          .then(response => response.json())
+          .then(({ specifications: aiSpecs }) => aiSpecs || [])
+          .catch(error => {
+            console.error('Error generating specs with AI:', error)
+            return []
           })
-          const { specifications: aiSpecs } = await response.json()
-          // KOMBINEREN: user specs + AI specs
-          specsList = [...specsList, ...aiSpecs]
-        } catch (error) {
-          console.error('Error generating specs with AI:', error)
-          // Fallback: continue with manual specs only
-        }
       }
 
-      // Create the project first
-      const { data: projectData } = await supabase
+      // Create the project
+      const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert([{
           user_id: userId,
-          name: projectName,
-          moq: parseInt(moq)
+          name: projectNameCopy,
+          moq: parseInt(moqCopy)
         }])
         .select()
 
+      if (projectError) throw projectError
+
       const newProject = projectData[0]
 
-      // Always start with Images requirement, then add MOQ info, then user specs
+      // Get AI specs if any
+      const aiSpecs = await aiSpecsPromise
+      specsList = [...specsList, ...aiSpecs]
+
+      // Prepare master requirements
       const masterRequirements = [
         {
           project_id: newProject.id,
@@ -116,7 +129,7 @@ export default function Home() {
         },
         {
           project_id: newProject.id,
-          label: `MOQ: ${moq} units`,
+          label: `MOQ: ${moqCopy} units`,
           status: 'pending'
         },
         ...specsList.map((spec) => ({
@@ -126,19 +139,23 @@ export default function Home() {
         }))
       ]
 
+      // Update UI immediately with new project
+      setProjects([newProject, ...projects])
+
+      // Insert requirements in background
       if (masterRequirements.length > 0) {
-        await supabase
+        supabase
           .from('master_requirements')
           .insert(masterRequirements)
+          .catch(error => console.error('Error inserting requirements:', error))
       }
-
-      setProjects([newProject, ...projects])
-      setProjectName('')
-      setMoq('')
-      setSpecifications('')
     } catch (error) {
       console.error('Error creating project:', error)
       alert('Error creating project: ' + error.message)
+      // Restore inputs on error
+      setProjectName(projectNameCopy)
+      setMoq(moqCopy)
+      setSpecifications(specificationsCopy)
     } finally {
       setLoading(false)
     }
