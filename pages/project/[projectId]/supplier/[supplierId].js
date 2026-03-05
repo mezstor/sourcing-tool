@@ -25,6 +25,27 @@ export default function SupplierAuditPage() {
     }
   }, [router.query])
 
+  // Fuzzy string matcher for requirement labels
+  const fuzzyMatch = (str1, str2) => {
+    const normalize = (s) => s.toLowerCase().replace(/[^\w\s]/g, '').trim()
+    const s1 = normalize(str1)
+    const s2 = normalize(str2)
+
+    // Exact match
+    if (s1 === s2) return 100
+
+    // Check if one contains the other (e.g., "MOQ: 10" contains "MOQ")
+    if (s1.includes(s2) || s2.includes(s1)) return 90
+
+    // Check word overlap (e.g., "images product photos" and "images")
+    const words1 = s1.split(/\s+/)
+    const words2 = s2.split(/\s+/)
+    const overlap = words1.filter(w => words2.includes(w)).length
+    if (overlap > 0) return (overlap / Math.max(words1.length, words2.length)) * 100
+
+    return 0
+  }
+
   // Calculate cumulative analysis from all chats
   const calculateCumulativeAnalysis = (allChats, allRequirements) => {
     if (!allChats || allChats.length === 0) return null
@@ -42,8 +63,21 @@ export default function SupplierAuditPage() {
       if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
 
       chat.ai_analysis.requirements.forEach(chatReq => {
-        const reqIndex = cumulativeReqs.findIndex(r => r.label === chatReq.label)
-        if (reqIndex !== -1) {
+        // Find best matching requirement using fuzzy matching
+        let bestMatch = -1
+        let bestScore = 0
+
+        cumulativeReqs.forEach((req, idx) => {
+          const score = fuzzyMatch(req.label, chatReq.label)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = idx
+          }
+        })
+
+        // Only match if confidence is high (>60%)
+        if (bestMatch !== -1 && bestScore > 60) {
+          const reqIndex = bestMatch
           // Prefer confirmed > conflict > missing
           if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
             cumulativeReqs[reqIndex].status = chatReq.status
