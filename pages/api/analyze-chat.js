@@ -15,17 +15,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    // Build context about what's already been confirmed or conflicted
+    // Build context about what's already been confirmed, conflicted, or partially answered
     let previousContext = ''
     if (previousAnalysis && previousAnalysis.requirements) {
       const confirmed = previousAnalysis.requirements.filter(r => r.status === 'confirmed').map(r => r.label).join(', ')
       const conflicted = previousAnalysis.requirements.filter(r => r.status === 'conflict').map(r => r.label).join(', ')
+      const partial = previousAnalysis.requirements.filter(r => r.status === 'partial').map(r => `${r.label} (evidence: "${r.evidence}")`).join(', ')
 
       if (confirmed) {
-        previousContext += `\n\nALREADY CONFIRMED (do NOT ask about these again): ${confirmed}`
+        previousContext += `\n\nALREADY CONFIRMED (do NOT downgrade or ask about these again): ${confirmed}`
       }
       if (conflicted) {
-        previousContext += `\n\nALREADY CONFLICTED - Supplier said NO (do NOT ask about these again): ${conflicted}`
+        previousContext += `\n\nALREADY CONFLICTED - Supplier said NO (do NOT downgrade or ask about these again): ${conflicted}`
+      }
+      if (partial) {
+        previousContext += `\n\nALREADY PARTIAL (Supplier responded but incomplete - do NOT downgrade to MISSING): ${partial}`
       }
     }
 
@@ -37,7 +41,13 @@ export default async function handler(req, res) {
       '\n\nSUPPLIER CHAT TEXT:\n' +
       chatText +
       '\n\nAnalyze the chat CAREFULLY for each requirement:\n' +
-      '1. For each master requirement, determine if it\'s: "confirmed" (green), "partial" (yellow/orange), "conflict" (red), or "missing" (grey)\n\n' +
+      '1. For each master requirement, determine if it\'s: "confirmed" (green), "partial" (yellow/orange), "conflict" (red), or "missing" (grey)\n' +
+      '   CRITICAL RULE: Status CAN ONLY STAY SAME or UPGRADE, NEVER DOWNGRADE:\n' +
+      '   - confirmed → can ONLY stay confirmed (never go to partial/conflict/missing)\n' +
+      '   - conflict → can ONLY stay conflict (never go to partial/missing/confirmed)\n' +
+      '   - partial → can upgrade to confirmed (if more details given), or stay partial\n' +
+      '   - missing → can upgrade to partial/conflict/confirmed (first mention of requirement)\n' +
+      '   Example: If MOQ was "CONFLICT (600 units)" in previous chat, and new chat mentions \"600 units\", it stays CONFLICT\n\n' +
       'CONFIRMED STATUS (✅ Green - fully answered):\n' +
       '  - Supplier clearly stated they can/have it with specific details\n' +
       '  - "we have capability AND price is X AND lead time is Y" = CONFIRMED\n' +
@@ -51,22 +61,34 @@ export default async function handler(req, res) {
       '    - They said "capability available" BUT NOT price → PARTIAL\n' +
       '    - They said "price 22 RMB" BUT NOT capability/lead time → PARTIAL\n' +
       '  - Use PARTIAL when they answered but the requirement still needs follow-up details\n\n' +
-      'CONFIRMED STATUS INDICATORS (🟢 Green):\n' +
-      '  - "we have", "we can", "we provide", "we do", "yes", "we accept", "we agree"\n' +
-      '  - "possible", "no problem", "can do", "available", "in stock"\n' +
+      'CONFIRMED STATUS INDICATORS (🟢 Green - ONLY when FULLY answered):\n' +
+      '  - ONLY for simple yes/no requirements that are fully answered\n' +
+      '  - "we have product photos" = CONFIRMED\n' +
+      '  - "customization available" = CONFIRMED (simple capability)\n' +
+      '  - "we accept MOQ 1000" = CONFIRMED (specific number)\n' +
+      '  - CRITICAL: For multi-part requirements like "Prototype/Sample price & lead time":\n' +
+      '    - "can do prototype" ALONE = PARTIAL (missing price/lead time)\n' +
+      '    - "price 20 RMB" ALONE = PARTIAL (missing capability/lead time)\n' +
+      '    - "price 20 RMB, lead time 30 days" = CONFIRMED (both parts answered)\n' +
       '  - Even with typos: "possibe" = possible, "costumized" = customized\n\n' +
       'CONFLICT STATUS (❌ Red - impossible):\n' +
       '  - "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
       '  - "we don\'t offer", "not available", "not in stock", "we don\'t provide"\n' +
-      '  - "only X" (implicit conflict for OTHER items). Example: "only purple" means red = CONFLICT\n\n' +
+      '  - "only X" (implicit conflict for OTHER items). Example: "only purple" means red = CONFLICT\n' +
+      '  - SIZE MISMATCH: "we make 14-inch" + requirement "13-inch" = CONFLICT (they offer different size)\n' +
+      '  - MATERIAL MISMATCH: "we make plastic" + requirement "metal" = CONFLICT\n' +
+      '  - SPECIFICATION MISMATCH: Their stated capability ≠ requirement = CONFLICT\n\n' +
       'MISSING STATUS (⏳ Grey - not mentioned):\n' +
       '  - Requirement not mentioned in the chat at all\n\n' +
       'IMPORTANT CONTEXT:\n' +
       '1. DISTINGUISH confirmed vs partial:\n' +
       '   - CONFIRMED = full answer with details\n' +
       '   - PARTIAL = they responded but some details missing\n' +
-      '2. If supplier says "we have no glass but customization possible":\n' +
-      '   - glass = CONFLICT, customization = CONFIRMED\n' +
+      '   - Example: "can do prototype" (capability only) = PARTIAL (missing price/lead time)\n' +
+      '2. SIZE/MATERIAL/SPEC MISMATCH = CONFLICT:\n' +
+      '   - Supplier says "14 inch" but requirement is "13 inch" = CONFLICT\n' +
+      '   - Supplier says "plastic" but requirement is "metal" = CONFLICT\n' +
+      '   - This is explicit when they state a different specification\n' +
       '3. "only X" logic: "only purple" → red = CONFLICT, green = CONFIRMED if mentioned\n\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
       '3. IMPORTANT: Generate ONE comprehensive follow-up question. Coverage:\n' +
