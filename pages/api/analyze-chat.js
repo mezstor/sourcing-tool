@@ -86,12 +86,23 @@ export default async function handler(req, res) {
       '4. "Only X" = CONFLICT for everything that is NOT X\n' +
       '5. LOCKED statuses (confirmed/conflict from before) NEVER change\n\n' +
       '=== FOLLOW-UP QUESTION ===\n' +
-      'Generate ONE comprehensive question bundling:\n' +
-      '- All MISSING requirements (grey items)\n' +
-      '- PARTIAL requirements asking for MISSING DETAILS ONLY (orange items)\n' +
-      '- Do NOT ask about CONFIRMED or CONFLICT items\n' +
-      'Format: 3+ items → numbered list. 1-2 items → conversational.\n' +
-      'Vary language naturally.\n\n' +
+      'CRITICAL: Generate ONE single comprehensive question that bundles ALL items needing action:\n' +
+      '- Include EVERY MISSING requirement (grey items) in this ONE question\n' +
+      '- Include EVERY PARTIAL requirement (orange items) in this ONE question, asking for MISSING DETAILS ONLY\n' +
+      '- Do NOT include confirmed (green) or conflict (red) items\n' +
+      'This is NOT multiple separate questions - it is ONE multi-part question!\n\n' +
+      'Format guidelines:\n' +
+      '  3+ items → Use numbered list format:\n' +
+      '    能否逐条确认以下信息:\n' +
+      '    1. [specific question about first missing/partial item]\n' +
+      '    2. [specific question about second missing/partial item]\n' +
+      '    3. [specific question about third missing/partial item]\n\n' +
+      '  1-2 items → Use conversational format without numbers\n\n' +
+      'EXAMPLES OF CORRECT BUNDLING:\n' +
+      '  WRONG: Only asks about one item: "您是否可以提供样品?"\n' +
+      '  CORRECT: Asks about all missing/partial items together:\n' +
+      '    "能否逐条确认: 1. 最低起订量(MOQ)是多少? 2. 您是否可以提供1-2个样品？样品的起样成本和交期各是多少? 3. 您支持定制吗?"\n\n' +
+      'Vary language naturally. Do not use identical templates each time.\n\n' +
       'Respond ONLY in this JSON format (no other text):\n' +
       '{\n' +
       '  "requirements": [\n' +
@@ -99,7 +110,7 @@ export default async function handler(req, res) {
       '  ],\n' +
       '  "supplier_notes": "key facts about supplier",\n' +
       '  "supplier_notes_english": "English translation",\n' +
-      '  "next_question_chinese": "one comprehensive question in Chinese (bundle all missing/partial items)",\n' +
+      '  "next_question_chinese": "ONE comprehensive question in Chinese - bundle all missing/partial items together",\n' +
       '  "next_question_english": "English translation"\n' +
       '}'
 
