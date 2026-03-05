@@ -36,11 +36,23 @@ export default async function handler(req, res) {
       previousContext +
       '\n\nSUPPLIER CHAT TEXT:\n' +
       chatText +
-      '\n\nAnalyze the chat and:\n' +
-      '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n' +
-      '   - CONFIRMED: Supplier mentioned they HAVE it, CAN provide it, HAVE done it, or AGREED to it. Examples: "we have large", "we can provide", "we accept", "yes we have that", "we provide customization"\n' +
-      '   - CONFLICT: Supplier explicitly said NO, cannot provide, refused, not available, not possible, doesn\'t work, not offered, etc. Examples: "we cannot", "we don\'t have", "not possible", "we don\'t offer", "we don\'t do customization"\n' +
-      '   - MISSING: Requirement not mentioned or discussed yet in the chat\n' +
+      '\n\nAnalyze the chat CAREFULLY for each requirement:\n' +
+      '1. For each master requirement, determine if it\'s: "confirmed" (green), "conflict" (red), or "missing" (grey)\n\n' +
+      'CONFIRMED STATUS INDICATORS (Look for these words/phrases - ignore typos like "possibe"/"costumized"):\n' +
+      '  - "we have", "we can", "we provide", "we do", "yes", "we accept", "we agree"\n' +
+      '  - "possible", "no problem", "can do", "available", "in stock"\n' +
+      '  - "we can provide customization", "customized printing available"\n' +
+      '  - Even with typos: "possibe" = possible, "costumized" = customized\n\n' +
+      'CONFLICT STATUS INDICATORS:\n' +
+      '  - "we cannot", "we don\'t have", "not possible", "impossible", "we don\'t do"\n' +
+      '  - "we don\'t offer", "not available", "not in stock", "we don\'t provide"\n' +
+      '  - "no customization", "no printing", "cannot be done"\n\n' +
+      'MISSING STATUS:\n' +
+      '  - Requirement not mentioned in the chat at all\n\n' +
+      'IMPORTANT: Look at the FULL context. If supplier says "we have no glass but customization is possible", then:\n' +
+      '  - glass = CONFLICT (they said they don\'t have it)\n' +
+      '  - customized printing = CONFIRMED (they said "possible/can do")\n' +
+      '  - Do NOT confuse them\n\n' +
       '2. Extract any additional supplier notes that aren\'t related to master requirements\n' +
       '3. IMPORTANT: Generate ONE comprehensive multi-part question covering ALL GREY items that haven\'t been confirmed or conflicted yet. Do NOT ask about items that are already confirmed or conflicted. The question should combine multiple grey items into one efficient message.\n' +
       '4. If there are no GREY items left, indicate "All key requirements confirmed"\n' +
