@@ -308,10 +308,10 @@ export default function ProjectPage() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">1688.com URL</label>
                   <input
-                    type="url"
+                    type="text"
                     value={newSupplierUrl}
                     onChange={(e) => setNewSupplierUrl(e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://detail.1688.com/..."
                     className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
                   />
                 </div>

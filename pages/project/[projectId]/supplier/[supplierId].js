@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../../../../lib/supabase'
 import { analyzeChat } from '../../../../lib/openai'
-import { ArrowLeft, Loader, Copy } from 'lucide-react'
+import { ArrowLeft, Loader, Copy, Pencil, Check, X } from 'lucide-react'
 import Link from 'next/link'
 
 export default function SupplierAuditPage() {
@@ -21,6 +21,8 @@ export default function SupplierAuditPage() {
   const [manualOverrides, setManualOverrides] = useState({})
   const [openStatusMenu, setOpenStatusMenu] = useState(null)
   const [lastQuestion, setLastQuestion] = useState({ english: '', chinese: '' })
+  const [editingUrl, setEditingUrl] = useState(false)
+  const [editUrlValue, setEditUrlValue] = useState('')
 
   useEffect(() => {
     if (router.query.projectId && router.query.supplierId) {
@@ -327,6 +329,22 @@ export default function SupplierAuditPage() {
     }
   }
 
+  const handleSaveUrl = async () => {
+    if (!editUrlValue.trim()) return
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ url: editUrlValue.trim() })
+        .eq('id', supplierId)
+      if (error) throw error
+      setSupplier({ ...supplier, url: editUrlValue.trim() })
+      setEditingUrl(false)
+    } catch (err) {
+      console.error('Error updating supplier URL:', err)
+      alert('Error updating URL: ' + err.message)
+    }
+  }
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
   }
@@ -439,18 +457,64 @@ export default function SupplierAuditPage() {
         {/* Supplier Info */}
         <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-card p-6 mb-6 border border-white/20">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="text-slate-600 text-sm font-semibold mb-2">SUPPLIER URL</p>
-              <a href={supplier.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium break-all transition-colors">
-                {supplier.url}
-              </a>
+              {editingUrl ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editUrlValue}
+                    onChange={(e) => setEditUrlValue(e.target.value)}
+                    placeholder="https://detail.1688.com/..."
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveUrl()
+                      if (e.key === 'Escape') setEditingUrl(false)
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveUrl}
+                    className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all"
+                    title="Save"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button
+                    onClick={() => setEditingUrl(false)}
+                    className="p-2 bg-slate-400 hover:bg-slate-500 text-white rounded-lg transition-all"
+                    title="Cancel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {supplier.url ? (
+                    <a href={supplier.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium break-all transition-colors">
+                      {supplier.url}
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 italic">No URL set</span>
+                  )}
+                  <button
+                    onClick={() => { setEditUrlValue(supplier.url || ''); setEditingUrl(true) }}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex-shrink-0"
+                    title="Edit URL"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => window.open(supplier.url, '_blank')}
-              className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all"
-            >
-              Open ↗
-            </button>
+            {!editingUrl && supplier.url && (
+              <button
+                onClick={() => window.open(supplier.url, '_blank')}
+                className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all flex-shrink-0"
+              >
+                Open ↗
+              </button>
+            )}
           </div>
         </div>
 
