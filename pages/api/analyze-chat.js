@@ -23,26 +23,38 @@ export default async function handler(req, res) {
     if (previousAnalysis && previousAnalysis.requirements) {
       const confirmed = previousAnalysis.requirements
         .filter(r => r.status === 'confirmed')
-        .map(r => `"${r.label}" = CONFIRMED ✅ (LOCKED — do NOT ask about this again, already fulfilled)`)
+        .map(r => `"${r.label}" → CONFIRMED ✅ LOCKED. Do not change. Do not ask again.`)
         .join('\n')
+
       const conflict = previousAnalysis.requirements
         .filter(r => r.status === 'conflict')
         .map(r => {
-          const evidence = r.evidence ? ` Evidence: "${r.evidence}"` : ''
-          return `"${r.label}" = CONFLICT 🔴 (supplier previously refused or could not meet this.${evidence} CAN change to CONFIRMED ONLY if supplier EXPLICITLY agrees to meet this requirement in the new chat. Otherwise keep as CONFLICT.)`
-        })
-        .join('\n')
-      const partial = previousAnalysis.requirements
-        .filter(r => r.status === 'partial')
-        .map(r => {
-          const evidence = r.evidence ? ` What was already provided: "${r.evidence}".` : ''
-          return `"${r.label}" = PARTIAL 🟠 (incomplete so far.${evidence} Upgrade to CONFIRMED ✅ if the missing detail is now provided in the new chat. Do NOT stay PARTIAL if the new chat completes the info.)`
+          const isMOQ = /moq|minimum order/i.test(r.label)
+          const evidence = r.evidence ? ` (Previously: "${r.evidence}")` : ''
+          const moqNote = isMOQ
+            ? '\n   MOQ SPECIAL: If new chat shows supplier agrees to our required quantity — e.g. "100件可以", "100 units OK", "没问题" after asking about 100 units — → CONFIRMED ✅'
+            : ''
+          return `"${r.label}" → CONFLICT 🔴${evidence}${moqNote}\n   Only change to CONFIRMED ✅ if supplier EXPLICITLY agrees in the NEW chat. Otherwise keep as CONFLICT.`
         })
         .join('\n')
 
-      if (confirmed) previousContext += `\n\nCONFIRMED FROM PREVIOUS CHATS (LOCKED — never ask again):\n${confirmed}`
-      if (conflict) previousContext += `\n\nCONFLICT FROM PREVIOUS CHATS (can upgrade to CONFIRMED if supplier explicitly agrees):\n${conflict}`
-      if (partial) previousContext += `\n\nPARTIAL FROM PREVIOUS CHATS (upgrade to CONFIRMED if missing detail is now provided):\n${partial}`
+      const partial = previousAnalysis.requirements
+        .filter(r => r.status === 'partial')
+        .map(r => {
+          const evidence = r.evidence ? `\n   Already provided: "${r.evidence}"` : ''
+          return (
+            `"${r.label}" → PARTIAL 🟠${evidence}\n` +
+            `   RULE: Check if the NEW chat provides the MISSING part.\n` +
+            `   You do NOT need to see the already-confirmed part again.\n` +
+            `   If the new chat provides the missing detail → CONFIRMED ✅\n` +
+            `   If new chat has NO new info about this → keep PARTIAL.`
+          )
+        })
+        .join('\n')
+
+      if (confirmed) previousContext += `\n\n--- CONFIRMED (locked, never re-ask) ---\n${confirmed}`
+      if (conflict) previousContext += `\n\n--- CONFLICT (can upgrade if supplier explicitly agrees) ---\n${conflict}`
+      if (partial) previousContext += `\n\n--- PARTIAL (upgrade to CONFIRMED if the missing detail arrives) ---\n${partial}`
     }
 
     const requirementsList = masterRequirements.map(r => {
