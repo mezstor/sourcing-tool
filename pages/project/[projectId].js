@@ -88,104 +88,45 @@ export default function ProjectPage() {
     }
   }, [projectId])
 
-  // Refresh analysis when returning from supplier page
-  useEffect(() => {
-    if (projectId && router.asPath && !router.asPath.includes('/supplier/')) {
-      // Slight delay to ensure we're back on the project page
-      const timer = setTimeout(() => {
-        if (suppliers.length > 0 && requirements.length > 0) {
-          refreshSupplierAnalysis()
-        }
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.asPath, projectId])
-
   const fetchProject = async () => {
     try {
       setLoading(true)
-      const { data: projectData } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', projectId)
-        .single()
 
-      const { data: suppliersData } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('project_id', projectId)
+      // Fetch project, suppliers, and requirements in parallel
+      const [projectRes, suppliersRes, requirementsRes] = await Promise.all([
+        supabase.from('projects').select('*').eq('id', projectId).single(),
+        supabase.from('suppliers').select('*').eq('project_id', projectId),
+        supabase.from('master_requirements').select('*').eq('project_id', projectId)
+      ])
 
-      const { data: requirementsData } = await supabase
-        .from('master_requirements')
-        .select('*')
-        .eq('project_id', projectId)
+      const projectData = projectRes.data
+      const suppliersData = suppliersRes.data || []
+      const requirementsData = requirementsRes.data || []
 
       setProject(projectData)
-      setSuppliers(suppliersData || [])
-      setRequirements(requirementsData || [])
+      setSuppliers(suppliersData)
+      setRequirements(requirementsData)
 
-      // Fetch chats for each supplier and calculate cumulative analysis
-      if (suppliersData && requirementsData) {
+      // Fetch all supplier chats in parallel
+      if (suppliersData.length > 0 && requirementsData.length > 0) {
+        const chatResults = await Promise.all(
+          suppliersData.map(supplier =>
+            supabase.from('chats').select('*').eq('supplier_id', supplier.id)
+              .then(res => ({ supplierId: supplier.id, chats: res.data || [] }))
+          )
+        )
+
         const analysisMap = {}
-        for (const supplier of suppliersData) {
-          const { data: chatsData } = await supabase
-            .from('chats')
-            .select('*')
-            .eq('supplier_id', supplier.id)
+        chatResults.forEach(({ supplierId, chats }) => {
+          if (chats.length === 0) return
 
-          if (chatsData && chatsData.length > 0) {
-            // Split real chats from override entry
-            const realChats = chatsData.filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
-            const overrideEntry = chatsData.find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
-            const savedOverrides = overrideEntry?.ai_analysis?.overrides || {}
-
-            // Base analysis from real chats, or all-missing if no chats
-            let cumulativeReqs = realChats.length > 0
-              ? calculateCumulativeAnalysis(realChats, requirementsData)
-              : requirementsData.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' }))
-
-            // Apply saved manual overrides
-            if (Object.keys(savedOverrides).length > 0) {
-              cumulativeReqs = cumulativeReqs.map(req =>
-                savedOverrides[req.label] ? { ...req, status: savedOverrides[req.label] } : req
-              )
-            }
-
-            if (realChats.length > 0 || Object.keys(savedOverrides).length > 0) {
-              analysisMap[supplier.id] = cumulativeReqs
-            }
-          }
-        }
-        setSupplierCumulativeAnalysis(analysisMap)
-      }
-    } catch (error) {
-      console.error('Error fetching project:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refreshSupplierAnalysis = async () => {
-    try {
-      // Recalculate cumulative analysis for all suppliers
-      const analysisMap = {}
-      for (const supplier of suppliers) {
-        const { data: chatsData } = await supabase
-          .from('chats')
-          .select('*')
-          .eq('supplier_id', supplier.id)
-
-        if (chatsData && chatsData.length > 0) {
-          // Split real chats from override entry
-          const realChats = chatsData.filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
-          const overrideEntry = chatsData.find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
+          const realChats = chats.filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
+          const overrideEntry = chats.find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
           const savedOverrides = overrideEntry?.ai_analysis?.overrides || {}
 
-          // Base analysis from real chats, or all-missing if no chats
           let cumulativeReqs = realChats.length > 0
-            ? calculateCumulativeAnalysis(realChats, requirements)
-            : requirements.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' }))
+            ? calculateCumulativeAnalysis(realChats, requirementsData)
+            : requirementsData.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' }))
 
           // Apply saved manual overrides
           if (Object.keys(savedOverrides).length > 0) {
@@ -195,13 +136,16 @@ export default function ProjectPage() {
           }
 
           if (realChats.length > 0 || Object.keys(savedOverrides).length > 0) {
-            analysisMap[supplier.id] = cumulativeReqs
+            analysisMap[supplierId] = cumulativeReqs
           }
-        }
+        })
+
+        setSupplierCumulativeAnalysis(analysisMap)
       }
-      setSupplierCumulativeAnalysis(analysisMap)
     } catch (error) {
-      console.error('Error refreshing supplier analysis:', error)
+      console.error('Error fetching project:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
