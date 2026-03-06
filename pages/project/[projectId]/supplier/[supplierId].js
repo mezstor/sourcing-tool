@@ -18,6 +18,8 @@ export default function SupplierAuditPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [suppliers, setSuppliers] = useState([])
+  const [manualOverrides, setManualOverrides] = useState({})
+  const [openStatusMenu, setOpenStatusMenu] = useState(null)
 
   useEffect(() => {
     if (router.query.projectId && router.query.supplierId) {
@@ -207,7 +209,7 @@ export default function SupplierAuditPage() {
         .from('chats')
         .select('*')
         .eq('supplier_id', supplierId)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (chatsError) throw chatsError
 
@@ -291,6 +293,27 @@ export default function SupplierAuditPage() {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
+  }
+
+  const handleStatusChange = (requirementLabel, newStatus) => {
+    const statusKey = `${supplierId}_${requirementLabel}`
+
+    // Update local state immediately for better UX
+    setManualOverrides({
+      ...manualOverrides,
+      [statusKey]: newStatus
+    })
+
+    // Update cumulative analysis with new status
+    if (cumulativeAnalysis) {
+      const updated = {
+        ...cumulativeAnalysis,
+        requirements: cumulativeAnalysis.requirements.map(req =>
+          req.label === requirementLabel ? { ...req, status: newStatus } : req
+        )
+      }
+      setCumulativeAnalysis(updated)
+    }
   }
 
   if (loading) {
@@ -417,27 +440,64 @@ export default function SupplierAuditPage() {
 
             {/* Requirements Status */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Requirements Status</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Requirements Status (Click to Change)</h3>
               <div className="grid gap-2">
-                {cumulativeAnalysis.requirements?.map((req, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded">
-                    <div
-                      className={`w-4 h-4 rounded-full ${
-                        req.status === 'confirmed'
-                          ? 'bg-green-500'
-                          : req.status === 'partial'
-                          ? 'bg-yellow-500'
-                          : req.status === 'conflict'
-                          ? 'bg-red-500'
-                          : 'bg-gray-400'
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{req.label}</p>
-                      <p className="text-sm text-gray-600">{req.evidence}</p>
+                {cumulativeAnalysis.requirements?.map((req, idx) => {
+                  const statusKey = `${supplierId}_${req.label}`
+                  const displayStatus = manualOverrides[statusKey] || req.status
+                  const isOpen = openStatusMenu === idx
+
+                  return (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded relative group">
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenStatusMenu(isOpen ? null : idx)}
+                          className={`w-6 h-6 rounded-full cursor-pointer transition hover:scale-125 ${
+                            displayStatus === 'confirmed'
+                              ? 'bg-green-500'
+                              : displayStatus === 'partial'
+                              ? 'bg-yellow-500'
+                              : displayStatus === 'conflict'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                          }`}
+                          title="Click to change status"
+                        />
+
+                        {isOpen && (
+                          <div className="absolute top-8 left-0 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-48">
+                            {['confirmed', 'partial', 'conflict', 'missing'].map(status => (
+                              <button
+                                key={status}
+                                onClick={() => {
+                                  handleStatusChange(req.label, status)
+                                  setOpenStatusMenu(null)
+                                }}
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 first:rounded-t-lg last:rounded-b-lg ${
+                                  displayStatus === status ? 'bg-indigo-50 font-semibold' : ''
+                                }`}
+                              >
+                                <div className={`w-3 h-3 rounded-full ${
+                                  status === 'confirmed' ? 'bg-green-500' :
+                                  status === 'partial' ? 'bg-yellow-500' :
+                                  status === 'conflict' ? 'bg-red-500' :
+                                  'bg-gray-400'
+                                }`} />
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                                {displayStatus === status && '✓'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{req.label}</p>
+                        <p className="text-sm text-gray-600">{req.evidence}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
