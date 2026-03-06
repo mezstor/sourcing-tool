@@ -91,21 +91,26 @@ export default function ProjectPage() {
             .eq('supplier_id', supplier.id)
 
           if (chatsData && chatsData.length > 0) {
-            let cumulativeReqs = calculateCumulativeAnalysis(chatsData, requirementsData)
+            // Split real chats from override entry
+            const realChats = chatsData.filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
+            const overrideEntry = chatsData.find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
+            const savedOverrides = overrideEntry?.ai_analysis?.overrides || {}
 
-            // Apply manual overrides if they exist
-            if (supplier.manual_overrides) {
-              const overridesMap = supplier.manual_overrides
-              cumulativeReqs = cumulativeReqs.map(req => {
-                const statusKey = `${supplier.id}_${req.label}`
-                if (overridesMap[statusKey]) {
-                  return { ...req, status: overridesMap[statusKey] }
-                }
-                return req
-              })
+            // Base analysis from real chats, or all-missing if no chats
+            let cumulativeReqs = realChats.length > 0
+              ? calculateCumulativeAnalysis(realChats, requirementsData)
+              : requirementsData.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' }))
+
+            // Apply saved manual overrides
+            if (Object.keys(savedOverrides).length > 0) {
+              cumulativeReqs = cumulativeReqs.map(req =>
+                savedOverrides[req.label] ? { ...req, status: savedOverrides[req.label] } : req
+              )
             }
 
-            analysisMap[supplier.id] = cumulativeReqs
+            if (realChats.length > 0 || Object.keys(savedOverrides).length > 0) {
+              analysisMap[supplier.id] = cumulativeReqs
+            }
           }
         }
         setSupplierCumulativeAnalysis(analysisMap)
