@@ -291,7 +291,6 @@ export default function SupplierAuditPage() {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
-    alert('Copied to clipboard!')
   }
 
   if (loading) {

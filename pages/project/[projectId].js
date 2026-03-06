@@ -186,6 +186,23 @@ export default function ProjectPage() {
     }
   }
 
+  const handleDeleteRequirement = async (requirementId) => {
+    if (!confirm('Deseja deletar este requirement?')) return
+
+    try {
+      const { error } = await supabase
+        .from('master_requirements')
+        .delete()
+        .eq('id', requirementId)
+
+      if (error) throw error
+      setRequirements(requirements.filter(r => r.id !== requirementId))
+    } catch (error) {
+      console.error('Error deleting requirement:', error)
+      alert('Error deleting requirement')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -267,8 +284,15 @@ export default function ProjectPage() {
               {/* Requirements List */}
               <div className="mt-4 space-y-2">
                 {requirements.map((req) => (
-                  <div key={req.id} className="p-2 bg-gray-100 rounded text-sm text-gray-700">
-                    {req.label}
+                  <div key={req.id} className="p-2 bg-gray-100 rounded text-sm text-gray-700 flex items-center justify-between group hover:bg-gray-200">
+                    <span>{req.label}</span>
+                    <button
+                      onClick={() => handleDeleteRequirement(req.id)}
+                      className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition"
+                      title="Delete requirement"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
