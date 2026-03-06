@@ -137,13 +137,17 @@ export default function SupplierAuditPage() {
         // Only match if confidence is high (>50% - lowered from 60% to catch more matches)
         if (bestMatch !== -1 && bestScore > 50) {
           const reqIndex = bestMatch
-          // Priority: confirmed > partial > conflict > missing
-          const statusPriority = { confirmed: 4, partial: 3, conflict: 2, missing: 1 }
-          const currentPriority = statusPriority[cumulativeReqs[reqIndex].status] || 0
-          const newPriority = statusPriority[chatReq.status] || 0
+          const currentStatus = cumulativeReqs[reqIndex].status
+          const newStatus = chatReq.status
 
-          // Update if new status is higher priority, or same priority (for more recent evidence)
-          if (newPriority >= currentPriority) {
+          // Newest chat wins, with two exceptions:
+          // 1. MISSING = no new info, never overrides anything
+          // 2. CONFIRMED is locked — never downgrade
+          const shouldUpdate =
+            newStatus !== 'missing' &&
+            (currentStatus !== 'confirmed' || newStatus === 'confirmed')
+
+          if (shouldUpdate) {
             cumulativeReqs[reqIndex].status = chatReq.status
             cumulativeReqs[reqIndex].evidence = chatReq.evidence
             console.log(`✅ MATCHED: AI req "${chatReq.label}" (${chatReq.status}) -> Master req "${cumulativeReqs[reqIndex].label}" [score: ${bestScore.toFixed(1)}]`)

@@ -32,9 +32,13 @@ export default async function handler(req, res) {
           const isMOQ = /moq|minimum order/i.test(r.label)
           const evidence = r.evidence ? ` (Previously: "${r.evidence}")` : ''
           const moqNote = isMOQ
-            ? '\n   MOQ SPECIAL: If new chat shows supplier agrees to our required quantity — e.g. "100件可以", "100 units OK", "没问题" after asking about 100 units — → CONFIRMED ✅'
+            ? '\n   MOQ SPECIAL: If new chat shows supplier agrees to our required quantity — e.g. "100件可以", "100个单位", "100 units", "没问题" after asking about our quantity — → CONFIRMED ✅'
             : ''
-          return `"${r.label}" → CONFLICT 🔴${evidence}${moqNote}\n   Only change to CONFIRMED ✅ if supplier EXPLICITLY agrees in the NEW chat. Otherwise keep as CONFLICT.`
+          return (
+            `"${r.label}" → CONFLICT 🔴${evidence}${moqNote}\n` +
+            `   IMPORTANT: If the NEW chat provides a value that MATCHES or SATISFIES the requirement → CONFIRMED ✅\n` +
+            `   Only keep as CONFLICT if the new chat provides NO relevant info or gives a DIFFERENT/conflicting value.`
+          )
         })
         .join('\n')
 
@@ -136,19 +140,31 @@ export default async function handler(req, res) {
 
       '=== CRITICAL: EVALUATE THE NEW CHAT FIRST ===\n' +
       'Before setting any status, read the NEW chat text and ask yourself:\n' +
-      '"Does this new message contain information relevant to this requirement?"\n\n' +
+      '"Does this new message contain information relevant to this requirement?"\n' +
+      'If the supplier provides a value that MATCHES or SATISFIES a requirement, mark it CONFIRMED ✅ — even if previous status was CONFLICT or PARTIAL.\n\n' +
       'CORRECT EXAMPLES:\n' +
       '  Example 1 — MOQ CONFLICT → CONFIRMED:\n' +
       '    Previous: MOQ = CONFLICT (supplier said their MOQ is 500, we need 200)\n' +
-      '    New chat: "好的，200个可以" or "OK, 200 units is fine"\n' +
+      '    New chat: "好的，200个可以" or "OK, 200 units is fine" or "200个单位"\n' +
       '    → Supplier agreed to our quantity → return CONFIRMED ✅ with evidence "Supplier agreed to 200 units"\n' +
       '    ✗ WRONG: returning CONFLICT with old evidence "MOQ is 500"\n\n' +
-      '  Example 2 — PARTIAL → CONFIRMED:\n' +
+      '  Example 2 — MOQ stated directly:\n' +
+      '    Requirement: "MOQ: 100 units"\n' +
+      '    New chat: "100个单位" or "100 units" or "可以做100个"\n' +
+      '    → Supplier states they can do 100 units, which matches requirement → CONFIRMED ✅\n' +
+      '    ✗ WRONG: returning CONFLICT because "supplier did not explicitly confirm MOQ"\n' +
+      '    NOTE: Stating the matching quantity IS explicit confirmation!\n\n' +
+      '  Example 3 — Lead time provided:\n' +
+      '    Requirement: lead time\n' +
+      '    New chat: "交货周期为100天" or "lead time 200 days"\n' +
+      '    → Supplier provided lead time → CONFIRMED ✅\n' +
+      '    ✗ WRONG: keeping as PARTIAL or MISSING when lead time was given\n\n' +
+      '  Example 4 — PARTIAL → CONFIRMED:\n' +
       '    Previous: "price & lead time" = PARTIAL (price 200 RMB given, lead time missing)\n' +
       '    New chat: "交货周期为20天" (lead time is 20 days)\n' +
       '    → Lead time now provided + price already confirmed before → return CONFIRMED ✅\n' +
       '    ✗ WRONG: returning PARTIAL because price is not in this specific chat\n\n' +
-      '  Example 3 — No new info:\n' +
+      '  Example 5 — No new info:\n' +
       '    Previous: MOQ = CONFLICT (supplier said 500)\n' +
       '    New chat: "我们可以制作原型" (we can make prototypes)\n' +
       '    → Chat is about prototypes, NOT MOQ → keep MOQ as CONFLICT 🔴\n\n' +

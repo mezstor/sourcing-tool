@@ -68,10 +68,17 @@ export default function ProjectPage() {
         })
 
         if (bestMatch !== -1 && bestScore > 50) {
-          const statusPriority = { confirmed: 4, partial: 3, conflict: 2, missing: 1 }
-          const currentPriority = statusPriority[cumulativeReqs[bestMatch].status] || 0
-          const newPriority = statusPriority[chatReq.status] || 0
-          if (newPriority >= currentPriority) {
+          const currentStatus = cumulativeReqs[bestMatch].status
+          const newStatus = chatReq.status
+
+          // Newest chat wins, with two exceptions:
+          // 1. MISSING = no new info, never overrides anything
+          // 2. CONFIRMED is locked — never downgrade
+          const shouldUpdate =
+            newStatus !== 'missing' &&
+            (currentStatus !== 'confirmed' || newStatus === 'confirmed')
+
+          if (shouldUpdate) {
             cumulativeReqs[bestMatch].status = chatReq.status
             cumulativeReqs[bestMatch].evidence = chatReq.evidence
           }
