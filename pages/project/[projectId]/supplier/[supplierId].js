@@ -227,33 +227,35 @@ export default function SupplierAuditPage() {
 
       if (suppliersError) throw suppliersError
 
+      // Split chats: real chats vs override entry
+      const realChats = (chatsData || []).filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
+      const overrideEntry = (chatsData || []).find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
+      const savedOverrides = overrideEntry?.ai_analysis?.overrides || {}
+
       setSupplier(supplierData)
-      setChats(chatsData || [])
+      setChats(realChats)
       setRequirements(requirementsData || [])
       setSuppliers(suppliersData || [])
+      setManualOverrides(savedOverrides)
 
-      // Load manual overrides from database
-      if (supplierData?.manual_overrides) {
-        setManualOverrides(supplierData.manual_overrides)
-      }
+      // Calculate cumulative analysis from all real chats + apply overrides
+      const cumulativeBase = realChats.length > 0 && requirementsData
+        ? calculateCumulativeAnalysis(realChats, requirementsData)
+        : requirementsData
+          ? { requirements: requirementsData.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' })), next_question_chinese: '', next_question_english: '', supplier_notes: '' }
+          : null
 
-      // Calculate cumulative analysis from all chats
-      if (chatsData && chatsData.length > 0 && requirementsData) {
-        const cumulative = calculateCumulativeAnalysis(chatsData, requirementsData)
-
-        // Apply manual overrides to cumulative analysis
-        if (supplierData?.manual_overrides) {
-          const overridesMap = supplierData.manual_overrides
-          cumulative.requirements = cumulative.requirements.map(req => {
-            const statusKey = `${supplierId}_${req.label}`
-            if (overridesMap[statusKey]) {
-              return { ...req, status: overridesMap[statusKey] }
+      if (cumulativeBase) {
+        // Apply saved overrides
+        if (Object.keys(savedOverrides).length > 0) {
+          cumulativeBase.requirements = cumulativeBase.requirements.map(req => {
+            if (savedOverrides[req.label]) {
+              return { ...req, status: savedOverrides[req.label] }
             }
             return req
           })
         }
-
-        setCumulativeAnalysis(cumulative)
+        setCumulativeAnalysis(cumulativeBase)
       } else {
         setCumulativeAnalysis(null)
       }
@@ -293,11 +295,16 @@ export default function SupplierAuditPage() {
       if (error) throw error
       if (!data || !data[0]) throw new Error('Chat save failed')
 
-      const newChats = [...chats, data[0]]
+      const newChats = [data[0], ...chats]
       setChats(newChats)
 
-      // Update cumulative analysis with the new chat
+      // Update cumulative analysis and re-apply overrides
       const cumulative = calculateCumulativeAnalysis(newChats, requirements)
+      if (Object.keys(manualOverrides).length > 0) {
+        cumulative.requirements = cumulative.requirements.map(req =>
+          manualOverrides[req.label] ? { ...req, status: manualOverrides[req.label] } : req
+        )
+      }
       setCumulativeAnalysis(cumulative)
 
       setChatText('')
@@ -313,34 +320,42 @@ export default function SupplierAuditPage() {
     navigator.clipboard.writeText(text)
   }
 
-  const handleStatusChange = (requirementLabel, newStatus) => {
-    const statusKey = `${supplierId}_${requirementLabel}`
+  const handleStatusChange = async (requirementLabel, newStatus) => {
+    const newOverrides = { ...manualOverrides, [requirementLabel]: newStatus }
 
-    // Update local state immediately for better UX
-    setManualOverrides({
-      ...manualOverrides,
-      [statusKey]: newStatus
-    })
-
-    // Update cumulative analysis with new status
+    // Update local state immediately
+    setManualOverrides(newOverrides)
     if (cumulativeAnalysis) {
-      const updated = {
+      setCumulativeAnalysis({
         ...cumulativeAnalysis,
         requirements: cumulativeAnalysis.requirements.map(req =>
           req.label === requirementLabel ? { ...req, status: newStatus } : req
         )
-      }
-      setCumulativeAnalysis(updated)
+      })
     }
 
-    // Save to database
-    const newOverrides = { ...manualOverrides, [statusKey]: newStatus }
-    supabase
-      .from('suppliers')
-      .update({ manual_overrides: newOverrides })
-      .eq('id', supplierId)
-      .then(() => console.log('Status saved'))
-      .catch(err => console.error('Error saving status:', err))
+    // Save to chats table as a special override entry (no schema changes needed)
+    try {
+      const { data: existing } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('supplier_id', supplierId)
+        .eq('raw_payload', '__MANUAL_OVERRIDE__')
+        .maybeSingle()
+
+      if (existing) {
+        await supabase
+          .from('chats')
+          .update({ ai_analysis: { overrides: newOverrides } })
+          .eq('id', existing.id)
+      } else {
+        await supabase
+          .from('chats')
+          .insert([{ supplier_id: supplierId, raw_payload: '__MANUAL_OVERRIDE__', ai_analysis: { overrides: newOverrides } }])
+      }
+    } catch (err) {
+      console.error('Error saving override:', err)
+    }
   }
 
   if (loading) {
