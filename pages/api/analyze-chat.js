@@ -60,12 +60,18 @@ export default async function handler(req, res) {
       '  • req="5cm ring" + supplier="15cm ring" → SAME part, different value → CONFLICT 🔴\n' +
       '  • req="metal step" + supplier="plastic step" → SAME part, different material → CONFLICT 🔴\n' +
       '  • req="vanilla" + supplier="lavendel" → SAME category (scents), different → CONFLICT 🔴\n' +
-      '  • req="red" + supplier="blue" → SAME category (colors), different → CONFLICT 🔴\n\n' +
+      '  • req="red" + supplier="blue" → SAME category (colors), different → CONFLICT 🔴\n' +
+      '  • req="stone mug" + supplier="we only have glass mugs" → glass ≠ stone → CONFLICT 🔴\n' +
+      '    (supplier\'s stated product type implies the required material is NOT available)\n\n' +
 
       'RULE 2: REFUSALS = CONFLICT 🔴\n' +
       '  • "没有" (don\'t have), "不做" (don\'t make), "不能" (cannot), "无法" (unable) = CONFLICT 🔴\n' +
       '  • "没有原型" = "no prototype" → Prototype capability = CONFLICT 🔴 (NOT missing!)\n' +
-      '  • "我们只做X" = "we only make X" → anything that is NOT X = CONFLICT 🔴\n\n' +
+      '  • "我们只做X" / "我们只售X" / "我们只有X" / "我们只提供X" = "we only make/sell/have/offer X"\n' +
+      '    → anything that is NOT X = CONFLICT 🔴\n' +
+      '  • MATERIAL CONFLICT via product type: if supplier says "we only have/sell GLASS mugs"\n' +
+      '    and requirement is "stone" material → stone = CONFLICT 🔴 (glass ≠ stone)\n' +
+      '    The offered product material directly contradicts the required material.\n\n' +
 
       'RULE 3: PROTOTYPE vs PRODUCTION are DIFFERENT contexts\n' +
       '  • "Prototype price 300 RMB" → Prototype capability = CONFIRMED ✅ (they can make it!)\n' +
