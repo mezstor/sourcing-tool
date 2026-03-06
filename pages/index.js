@@ -259,12 +259,12 @@ export default function Home() {
               <p className="text-gray-600">No projects yet. Create one to get started!</p>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
-                <div key={project.id} className="flex items-center gap-4">
+                <div key={project.id} className="relative group bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden">
                   <Link href={`/project/${project.id}`}>
-                    <a className="flex-1 block bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer">
-                      <h3 className="text-xl font-semibold text-gray-900">{project.name}</h3>
+                    <a className="block p-6 cursor-pointer">
+                      <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
                       <p className="text-sm text-gray-500 mt-2">
                         Created: {new Date(project.created_at).toLocaleDateString()}
                       </p>
@@ -272,10 +272,10 @@ export default function Home() {
                   </Link>
                   <button
                     onClick={() => handleDeleteProject(project.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg"
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition"
                     title="Delete project"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               ))}

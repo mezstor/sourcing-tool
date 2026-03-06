@@ -86,11 +86,12 @@ export default async function handler(req, res) {
       '• Write fresh evidence for each requirement\n\n' +
 
       '=== FOLLOW-UP QUESTION ===\n' +
-      'Write ONE question in Chinese bundling ALL missing/partial items:\n' +
+      'Write ONE question in English bundling ALL missing/partial items:\n' +
       '• Ask about EVERY MISSING requirement\n' +
       '• Ask ONLY for missing details of PARTIAL requirements\n' +
       '• Do NOT ask about confirmed or conflict items\n' +
-      '• 3+ items → numbered list: "能否逐条确认: 1. ... 2. ... 3. ..."\n\n' +
+      '• 3+ items → numbered list: "Can you confirm the following: 1. ... 2. ... 3. ..."\n' +
+      'Then translate it to Chinese EXACTLY - the Chinese version must be a precise translation of the English one.\n\n' +
 
       '=== MANDATORY: RETURN ALL REQUIREMENTS ===\n' +
       'You MUST return a status for EVERY SINGLE requirement listed above.\n' +
@@ -104,8 +105,8 @@ export default async function handler(req, res) {
       '  ],\n' +
       '  "supplier_notes": "key facts",\n' +
       '  "supplier_notes_english": "English translation",\n' +
-      '  "next_question_chinese": "ONE comprehensive question covering ALL missing/partial items",\n' +
-      '  "next_question_english": "English translation"\n' +
+      '  "next_question_english": "ONE comprehensive question covering ALL missing/partial items (in English)",\n' +
+      '  "next_question_chinese": "EXACT Chinese translation of the English question above"\n' +
       '}'
 
     const message = await client.chat.completions.create({

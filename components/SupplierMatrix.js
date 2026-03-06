@@ -30,31 +30,34 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700 min-w-max">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white z-10 w-48">
                   Supplier
                 </th>
                 {requirements.map((req) => (
                   <th
                     key={req.id}
-                    className="text-center py-3 px-2 font-semibold text-gray-700 text-xs min-w-fit"
+                    className="text-center py-3 px-2 font-semibold text-gray-700 text-xs whitespace-nowrap"
                     title={req.label}
                   >
-                    {req.label.substring(0, 10)}
+                    <div className="w-6 h-6 rounded-full mx-auto mb-1 bg-gray-200"></div>
+                    <span className="text-xs">{req.label.substring(0, 8)}</span>
                   </th>
                 ))}
-                <th className="text-center py-3 px-4 font-semibold text-gray-700 whitespace-nowrap">
+                <th className="text-center py-3 px-4 font-semibold text-gray-700 whitespace-nowrap sticky right-0 bg-white z-10">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
               {suppliers.map((supplier) => (
-                <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-4 px-4 min-w-max">
-                    <div>
-                      <p className="font-semibold text-gray-900">{supplier.nickname}</p>
-                      <p className="text-xs text-gray-500 max-w-xs truncate" title={supplier.url}>{supplier.url}</p>
-                    </div>
+                <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50 group">
+                  <td className="py-4 px-4 sticky left-0 bg-inherit group-hover:bg-gray-50 z-10">
+                    <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
+                      <a className="block cursor-pointer hover:underline">
+                        <p className="font-semibold text-gray-900">{supplier.nickname}</p>
+                        <p className="text-xs text-gray-500 truncate" title={supplier.url}>{supplier.url}</p>
+                      </a>
+                    </Link>
                   </td>
                   {requirements.map((req) => {
                     // Get status from cumulative analysis if available, otherwise from requirement
@@ -67,25 +70,23 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
                     }
                     return (
                       <td key={req.id} className="text-center py-4 px-2">
-                        <div
-                          className={`w-6 h-6 rounded-full mx-auto ${getStatusColor(status)}`}
-                          title={status}
-                        />
+                        <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
+                          <a className="inline-block cursor-pointer">
+                            <div
+                              className={`w-6 h-6 rounded-full mx-auto transition hover:scale-110 ${getStatusColor(status)}`}
+                              title={status}
+                            />
+                          </a>
+                        </Link>
                       </td>
                     )
                   })}
-                  <td className="text-center py-4 px-4">
+                  <td className="text-center py-4 px-4 sticky right-0 bg-inherit group-hover:bg-gray-50 z-10">
                     <div className="flex items-center justify-center gap-2">
-                      <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
-                        <a className="text-indigo-600 hover:text-indigo-700 flex items-center justify-center gap-1">
-                          <span className="text-xs">Audit</span>
-                          <ChevronRight size={16} />
-                        </a>
-                      </Link>
                       {onDeleteSupplier && (
                         <button
                           onClick={() => onDeleteSupplier(supplier.id)}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-500 hover:text-red-700 p-1"
                           title="Delete supplier"
                         >
                           <Trash2 size={16} />
