@@ -105,7 +105,7 @@ export default function ProjectPage() {
   }
 
   const handleDeleteSupplier = async (supplierId) => {
-    if (!confirm('Weet je zeker? Dit delete supplier + alle chats.')) return
+    if (!confirm('Are you sure? This will delete the supplier + all chats.')) return
 
     try {
       // Delete all chats for this supplier
@@ -187,7 +187,7 @@ export default function ProjectPage() {
   }
 
   const handleDeleteRequirement = async (requirementId) => {
-    if (!confirm('Deseja deletar este requirement?')) return
+    if (!confirm('Are you sure you want to delete this requirement?')) return
 
     try {
       const { error } = await supabase

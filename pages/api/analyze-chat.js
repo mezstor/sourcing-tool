@@ -87,6 +87,7 @@ export default async function handler(req, res) {
 
       '=== FOLLOW-UP QUESTION ===\n' +
       'Write ONE question in English bundling ALL missing/partial items:\n' +
+      '• CRITICAL: Always ask about MOQ (Minimum Order Quantity) if not yet confirmed\n' +
       '• Ask about EVERY MISSING requirement\n' +
       '• Ask ONLY for missing details of PARTIAL requirements\n' +
       '• Do NOT ask about confirmed or conflict items\n' +
