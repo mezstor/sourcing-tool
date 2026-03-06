@@ -69,7 +69,8 @@ export default function ProjectPage() {
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [router.asPath])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.asPath, projectId])
 
   const fetchProject = async () => {
     try {
