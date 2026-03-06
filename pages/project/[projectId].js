@@ -91,7 +91,20 @@ export default function ProjectPage() {
             .eq('supplier_id', supplier.id)
 
           if (chatsData && chatsData.length > 0) {
-            const cumulativeReqs = calculateCumulativeAnalysis(chatsData, requirementsData)
+            let cumulativeReqs = calculateCumulativeAnalysis(chatsData, requirementsData)
+
+            // Apply manual overrides if they exist
+            if (supplier.manual_overrides) {
+              const overridesMap = supplier.manual_overrides
+              cumulativeReqs = cumulativeReqs.map(req => {
+                const statusKey = `${supplier.id}_${req.label}`
+                if (overridesMap[statusKey]) {
+                  return { ...req, status: overridesMap[statusKey] }
+                }
+                return req
+              })
+            }
+
             analysisMap[supplier.id] = cumulativeReqs
           }
         }

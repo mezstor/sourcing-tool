@@ -232,9 +232,27 @@ export default function SupplierAuditPage() {
       setRequirements(requirementsData || [])
       setSuppliers(suppliersData || [])
 
+      // Load manual overrides from database
+      if (supplierData?.manual_overrides) {
+        setManualOverrides(supplierData.manual_overrides)
+      }
+
       // Calculate cumulative analysis from all chats
       if (chatsData && chatsData.length > 0 && requirementsData) {
         const cumulative = calculateCumulativeAnalysis(chatsData, requirementsData)
+
+        // Apply manual overrides to cumulative analysis
+        if (supplierData?.manual_overrides) {
+          const overridesMap = supplierData.manual_overrides
+          cumulative.requirements = cumulative.requirements.map(req => {
+            const statusKey = `${supplierId}_${req.label}`
+            if (overridesMap[statusKey]) {
+              return { ...req, status: overridesMap[statusKey] }
+            }
+            return req
+          })
+        }
+
         setCumulativeAnalysis(cumulative)
       } else {
         setCumulativeAnalysis(null)
@@ -314,6 +332,15 @@ export default function SupplierAuditPage() {
       }
       setCumulativeAnalysis(updated)
     }
+
+    // Save to database
+    const newOverrides = { ...manualOverrides, [statusKey]: newStatus }
+    supabase
+      .from('suppliers')
+      .update({ manual_overrides: newOverrides })
+      .eq('id', supplierId)
+      .then(() => console.log('Status saved'))
+      .catch(err => console.error('Error saving status:', err))
   }
 
   if (loading) {
