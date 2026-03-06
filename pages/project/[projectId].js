@@ -174,6 +174,8 @@ export default function ProjectPage() {
       console.error('Error refreshing supplier analysis:', error)
     }
   }
+
+  const handleDeleteSupplier = async (supplierId) => {
     if (!confirm('Are you sure? This will delete the supplier + all chats.')) return
 
     try {
