@@ -58,6 +58,19 @@ export default function ProjectPage() {
     }
   }, [projectId])
 
+  // Refresh analysis when returning from supplier page
+  useEffect(() => {
+    if (projectId && router.asPath && !router.asPath.includes('/supplier/')) {
+      // Slight delay to ensure we're back on the project page
+      const timer = setTimeout(() => {
+        if (suppliers.length > 0 && requirements.length > 0) {
+          refreshSupplierAnalysis()
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [router.asPath])
+
   const fetchProject = async () => {
     try {
       setLoading(true)
@@ -122,7 +135,44 @@ export default function ProjectPage() {
     }
   }
 
-  const handleDeleteSupplier = async (supplierId) => {
+  const refreshSupplierAnalysis = async () => {
+    try {
+      // Recalculate cumulative analysis for all suppliers
+      const analysisMap = {}
+      for (const supplier of suppliers) {
+        const { data: chatsData } = await supabase
+          .from('chats')
+          .select('*')
+          .eq('supplier_id', supplier.id)
+
+        if (chatsData && chatsData.length > 0) {
+          // Split real chats from override entry
+          const realChats = chatsData.filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
+          const overrideEntry = chatsData.find(c => c.raw_payload === '__MANUAL_OVERRIDE__')
+          const savedOverrides = overrideEntry?.ai_analysis?.overrides || {}
+
+          // Base analysis from real chats, or all-missing if no chats
+          let cumulativeReqs = realChats.length > 0
+            ? calculateCumulativeAnalysis(realChats, requirements)
+            : requirements.map(r => ({ id: r.id, label: r.label, status: 'missing', evidence: '' }))
+
+          // Apply saved manual overrides
+          if (Object.keys(savedOverrides).length > 0) {
+            cumulativeReqs = cumulativeReqs.map(req =>
+              savedOverrides[req.label] ? { ...req, status: savedOverrides[req.label] } : req
+            )
+          }
+
+          if (realChats.length > 0 || Object.keys(savedOverrides).length > 0) {
+            analysisMap[supplier.id] = cumulativeReqs
+          }
+        }
+      }
+      setSupplierCumulativeAnalysis(analysisMap)
+    } catch (error) {
+      console.error('Error refreshing supplier analysis:', error)
+    }
+  }
     if (!confirm('Are you sure? This will delete the supplier + all chats.')) return
 
     try {
