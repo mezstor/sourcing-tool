@@ -197,35 +197,23 @@ export default function SupplierAuditPage() {
       setLoading(true)
       setError(null)
 
-      const { data: supplierData, error: supplierError } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('id', supplierId)
-        .single()
+      // Fetch all data in parallel for faster loading
+      const [supplierRes, chatsRes, requirementsRes, suppliersRes] = await Promise.all([
+        supabase.from('suppliers').select('*').eq('id', supplierId).single(),
+        supabase.from('chats').select('*').eq('supplier_id', supplierId).order('created_at', { ascending: false }),
+        supabase.from('master_requirements').select('*').eq('project_id', projectId),
+        supabase.from('suppliers').select('*').eq('project_id', projectId)
+      ])
 
-      if (supplierError) throw supplierError
+      if (supplierRes.error) throw supplierRes.error
+      if (chatsRes.error) throw chatsRes.error
+      if (requirementsRes.error) throw requirementsRes.error
+      if (suppliersRes.error) throw suppliersRes.error
 
-      const { data: chatsData, error: chatsError } = await supabase
-        .from('chats')
-        .select('*')
-        .eq('supplier_id', supplierId)
-        .order('created_at', { ascending: false })
-
-      if (chatsError) throw chatsError
-
-      const { data: requirementsData, error: requirementsError } = await supabase
-        .from('master_requirements')
-        .select('*')
-        .eq('project_id', projectId)
-
-      if (requirementsError) throw requirementsError
-
-      const { data: suppliersData, error: suppliersError } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('project_id', projectId)
-
-      if (suppliersError) throw suppliersError
+      const supplierData = supplierRes.data
+      const chatsData = chatsRes.data
+      const requirementsData = requirementsRes.data
+      const suppliersData = suppliersRes.data
 
       // Split chats: real chats vs override entry
       const realChats = (chatsData || []).filter(c => c.raw_payload !== '__MANUAL_OVERRIDE__')
