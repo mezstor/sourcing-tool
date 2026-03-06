@@ -18,6 +18,27 @@ export default function ProjectPage() {
   const [saving, setSaving] = useState(false)
   const [supplierCumulativeAnalysis, setSupplierCumulativeAnalysis] = useState({})
 
+  // Fuzzy string matcher for requirement labels
+  const fuzzyMatch = (str1, str2) => {
+    if (str1 === str2) return 100
+    const normalize = (s) => s.toLowerCase().replace(/[^a-z\u4E00-\u9FFF\s]/g, '').trim()
+    const s1 = normalize(str1)
+    const s2 = normalize(str2)
+    if (s1 === s2) return 100
+    if (s1.includes(s2) && s2.length > 1) return 85
+    if (s2.includes(s1) && s1.length > 1) return 85
+    const words1 = s1.match(/[a-z]+/g) || []
+    const words2 = s2.match(/[a-z]+/g) || []
+    if (words1.length > 0 && words2.length > 0) {
+      const overlap = words1.filter(w => words2.includes(w)).length
+      if (overlap > 0) {
+        const score = (overlap / Math.max(words1.length, words2.length)) * 80
+        if (score > 40) return score
+      }
+    }
+    return 0
+  }
+
   // Calculate cumulative analysis from all chats for a supplier
   const calculateCumulativeAnalysis = (supplierChats, allRequirements) => {
     if (!supplierChats || supplierChats.length === 0) return null
@@ -35,15 +56,24 @@ export default function ProjectPage() {
       if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
 
       chat.ai_analysis.requirements.forEach(chatReq => {
-        const reqIndex = cumulativeReqs.findIndex(r => r.label === chatReq.label)
-        if (reqIndex !== -1) {
-          // Prefer confirmed > conflict > missing
-          if (chatReq.status === 'confirmed' || cumulativeReqs[reqIndex].status === 'missing') {
-            cumulativeReqs[reqIndex].status = chatReq.status
-            cumulativeReqs[reqIndex].evidence = chatReq.evidence
-          } else if (chatReq.status === 'conflict' && cumulativeReqs[reqIndex].status !== 'confirmed') {
-            cumulativeReqs[reqIndex].status = chatReq.status
-            cumulativeReqs[reqIndex].evidence = chatReq.evidence
+        // Use fuzzy matching (same as supplier page) instead of exact match
+        let bestMatch = -1
+        let bestScore = 0
+        cumulativeReqs.forEach((req, idx) => {
+          const score = fuzzyMatch(req.label, chatReq.label)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = idx
+          }
+        })
+
+        if (bestMatch !== -1 && bestScore > 50) {
+          const statusPriority = { confirmed: 4, partial: 3, conflict: 2, missing: 1 }
+          const currentPriority = statusPriority[cumulativeReqs[bestMatch].status] || 0
+          const newPriority = statusPriority[chatReq.status] || 0
+          if (newPriority >= currentPriority) {
+            cumulativeReqs[bestMatch].status = chatReq.status
+            cumulativeReqs[bestMatch].evidence = chatReq.evidence
           }
         }
       })
