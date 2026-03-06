@@ -306,8 +306,11 @@ export default function ProjectPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Loader className="animate-spin text-indigo-600" size={40} />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={40} />
+          <p className="text-slate-600 font-medium">Loading project...</p>
+        </div>
       </div>
     )
   }
@@ -317,43 +320,54 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center gap-4">
+        <div className="mb-10 animate-fade-in">
           <Link href="/">
-            <a className="text-indigo-600 hover:text-indigo-700 flex items-center gap-2">
-              <ArrowLeft size={20} /> Back
+            <a className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold mb-4 transition-colors">
+              <ArrowLeft size={18} /> Back to Projects
             </a>
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900">{project.name}</h1>
+          <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-2">{project.name}</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-slate-600">MOQ: <span className="font-bold text-slate-900">{project.moq}</span> units</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+            <span className="text-slate-600">Created {new Date(project.created_at).toLocaleDateString()}</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left: Add Supplier & Requirements */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 animate-slide-up">
             {/* Add Supplier */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Add Supplier</h2>
-              <form onSubmit={handleAddSupplier} className="space-y-3">
-                <input
-                  type="text"
-                  value={newSupplierName}
-                  onChange={(e) => setNewSupplierName(e.target.value)}
-                  placeholder="Supplier nickname"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <input
-                  type="url"
-                  value={newSupplierUrl}
-                  onChange={(e) => setNewSupplierUrl(e.target.value)}
-                  placeholder="1688.com URL"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-card p-6 border border-white/20">
+              <h2 className="text-2xl font-bold text-slate-900 mb-5">➕ Add Supplier</h2>
+              <form onSubmit={handleAddSupplier} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nickname</label>
+                  <input
+                    type="text"
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                    placeholder="e.g., Factory A"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">1688.com URL</label>
+                  <input
+                    type="url"
+                    value={newSupplierUrl}
+                    onChange={(e) => setNewSupplierUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-soft hover:shadow-card transition-all"
                 >
                   {saving ? <Loader className="animate-spin" size={16} /> : <Plus size={16} />}
                   Add Supplier
@@ -362,20 +376,23 @@ export default function ProjectPage() {
             </div>
 
             {/* Add Requirement */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Master Requirements</h2>
-              <form onSubmit={handleAddRequirement} className="space-y-3">
-                <input
-                  type="text"
-                  value={newRequirement}
-                  onChange={(e) => setNewRequirement(e.target.value)}
-                  placeholder="e.g., 304 Steel, Logo Engraving"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-card p-6 border border-white/20">
+              <h2 className="text-2xl font-bold text-slate-900 mb-5">📋 Master Requirements</h2>
+              <form onSubmit={handleAddRequirement} className="space-y-4 mb-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Add Requirement</label>
+                  <input
+                    type="text"
+                    value={newRequirement}
+                    onChange={(e) => setNewRequirement(e.target.value)}
+                    placeholder="e.g., 304 Steel"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-soft hover:shadow-card transition-all"
                 >
                   {saving ? <Loader className="animate-spin" size={16} /> : <Plus size={16} />}
                   Add Requirement
@@ -383,19 +400,23 @@ export default function ProjectPage() {
               </form>
 
               {/* Requirements List */}
-              <div className="mt-4 space-y-2">
-                {requirements.map((req) => (
-                  <div key={req.id} className="p-2 bg-gray-100 rounded text-sm text-gray-700 flex items-center justify-between group hover:bg-gray-200">
-                    <span>{req.label}</span>
-                    <button
-                      onClick={() => handleDeleteRequirement(req.id)}
-                      className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition"
-                      title="Delete requirement"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                {requirements.length === 0 ? (
+                  <p className="text-slate-500 text-sm italic">No requirements yet</p>
+                ) : (
+                  requirements.map((req) => (
+                    <div key={req.id} className="p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg text-sm text-slate-700 flex items-center justify-between group hover:from-slate-100 hover:to-slate-100 transition-colors border border-slate-200/50">
+                      <span className="font-medium">{req.label}</span>
+                      <button
+                        onClick={() => handleDeleteRequirement(req.id)}
+                        className="text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Delete requirement"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
