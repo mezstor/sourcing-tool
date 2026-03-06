@@ -16,21 +16,33 @@ export default async function handler(req, res) {
     }
 
     // Build previous status context
-    // CONFIRMED and CONFLICT are LOCKED forever
-    // PARTIAL can upgrade to confirmed based on new info
+    // CONFIRMED is locked forever — supplier already confirmed, no need to re-ask
+    // CONFLICT can upgrade to CONFIRMED if supplier EXPLICITLY agrees in new chat
+    // PARTIAL can upgrade to CONFIRMED when the missing detail is provided
     let previousContext = ''
     if (previousAnalysis && previousAnalysis.requirements) {
-      const locked = previousAnalysis.requirements
-        .filter(r => r.status === 'confirmed' || r.status === 'conflict')
-        .map(r => `"${r.label}" = ${r.status.toUpperCase()} (LOCKED - never change this)`)
+      const confirmed = previousAnalysis.requirements
+        .filter(r => r.status === 'confirmed')
+        .map(r => `"${r.label}" = CONFIRMED ✅ (LOCKED — do NOT ask about this again, already fulfilled)`)
+        .join('\n')
+      const conflict = previousAnalysis.requirements
+        .filter(r => r.status === 'conflict')
+        .map(r => {
+          const evidence = r.evidence ? ` Evidence: "${r.evidence}"` : ''
+          return `"${r.label}" = CONFLICT 🔴 (supplier previously refused or could not meet this.${evidence} CAN change to CONFIRMED ONLY if supplier EXPLICITLY agrees to meet this requirement in the new chat. Otherwise keep as CONFLICT.)`
+        })
         .join('\n')
       const partial = previousAnalysis.requirements
         .filter(r => r.status === 'partial')
-        .map(r => `"${r.label}" = PARTIAL so far (re-evaluate with new chat - can upgrade to CONFIRMED if fully answered)`)
+        .map(r => {
+          const evidence = r.evidence ? ` What was already provided: "${r.evidence}".` : ''
+          return `"${r.label}" = PARTIAL 🟠 (incomplete so far.${evidence} Upgrade to CONFIRMED ✅ if the missing detail is now provided in the new chat. Do NOT stay PARTIAL if the new chat completes the info.)`
+        })
         .join('\n')
 
-      if (locked) previousContext += `\n\nLOCKED FROM PREVIOUS CHATS (do NOT change):\n${locked}`
-      if (partial) previousContext += `\n\nPARTIAL FROM PREVIOUS CHATS (re-evaluate - may upgrade to CONFIRMED):\n${partial}`
+      if (confirmed) previousContext += `\n\nCONFIRMED FROM PREVIOUS CHATS (LOCKED — never ask again):\n${confirmed}`
+      if (conflict) previousContext += `\n\nCONFLICT FROM PREVIOUS CHATS (can upgrade to CONFIRMED if supplier explicitly agrees):\n${conflict}`
+      if (partial) previousContext += `\n\nPARTIAL FROM PREVIOUS CHATS (upgrade to CONFIRMED if missing detail is now provided):\n${partial}`
     }
 
     const requirementsList = masterRequirements.map(r => {
