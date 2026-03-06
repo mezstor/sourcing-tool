@@ -116,8 +116,9 @@ export default function SupplierAuditPage() {
       evidence: ''
     }))
 
-    // Process each chat's analysis
-    allChats.forEach(chat => {
+    // Process each chat's analysis oldest-first so newer chats correctly override older ones
+    // (allChats is sorted newest-first from DB, so we reverse to get chronological order)
+    ;[...allChats].reverse().forEach(chat => {
       if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
 
       chat.ai_analysis.requirements.forEach(chatReq => {

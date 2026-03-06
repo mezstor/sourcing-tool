@@ -51,8 +51,8 @@ export default function ProjectPage() {
       evidence: ''
     }))
 
-    // Process each chat's analysis
-    supplierChats.forEach(chat => {
+    // Process oldest-first so newer chats correctly override older ones with >= priority
+    ;[...supplierChats].reverse().forEach(chat => {
       if (!chat.ai_analysis || !chat.ai_analysis.requirements) return
 
       chat.ai_analysis.requirements.forEach(chatReq => {
