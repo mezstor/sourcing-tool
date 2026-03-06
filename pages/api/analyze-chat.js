@@ -125,9 +125,30 @@ export default async function handler(req, res) {
       '  • Both price AND lead time given → CONFIRMED ✅\n\n' +
 
       '=== RULES ===\n' +
-      '• LOCKED statuses (confirmed/conflict) from previous chats NEVER change\n' +
-      '• PARTIAL can upgrade to CONFIRMED with new info\n' +
-      '• Write fresh evidence for each requirement\n\n' +
+      '• CONFIRMED from previous chats is LOCKED — never change, never re-ask\n' +
+      '• CONFLICT from previous chats CAN change to CONFIRMED if supplier explicitly agrees in the NEW chat\n' +
+      '• PARTIAL from previous chats CAN change to CONFIRMED if the missing detail is provided in the NEW chat\n' +
+      '• Write fresh evidence based on the NEW chat for each requirement\n' +
+      '• DO NOT copy old evidence — describe what the NEW chat says\n\n' +
+
+      '=== CRITICAL: EVALUATE THE NEW CHAT FIRST ===\n' +
+      'Before setting any status, read the NEW chat text and ask yourself:\n' +
+      '"Does this new message contain information relevant to this requirement?"\n\n' +
+      'CORRECT EXAMPLES:\n' +
+      '  Example 1 — MOQ CONFLICT → CONFIRMED:\n' +
+      '    Previous: MOQ = CONFLICT (supplier said their MOQ is 500, we need 200)\n' +
+      '    New chat: "好的，200个可以" or "OK, 200 units is fine"\n' +
+      '    → Supplier agreed to our quantity → return CONFIRMED ✅ with evidence "Supplier agreed to 200 units"\n' +
+      '    ✗ WRONG: returning CONFLICT with old evidence "MOQ is 500"\n\n' +
+      '  Example 2 — PARTIAL → CONFIRMED:\n' +
+      '    Previous: "price & lead time" = PARTIAL (price 200 RMB given, lead time missing)\n' +
+      '    New chat: "交货周期为20天" (lead time is 20 days)\n' +
+      '    → Lead time now provided + price already confirmed before → return CONFIRMED ✅\n' +
+      '    ✗ WRONG: returning PARTIAL because price is not in this specific chat\n\n' +
+      '  Example 3 — No new info:\n' +
+      '    Previous: MOQ = CONFLICT (supplier said 500)\n' +
+      '    New chat: "我们可以制作原型" (we can make prototypes)\n' +
+      '    → Chat is about prototypes, NOT MOQ → keep MOQ as CONFLICT 🔴\n\n' +
 
       '=== WHEN SUPPLIER ASKS US A QUESTION ===\n' +
       'If the supplier\'s message contains questions directed at us (like "How many do you need?",\n' +
