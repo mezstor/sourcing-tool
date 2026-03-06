@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { chatText, masterRequirements, previousAnalysis } = req.body
+    const { chatText, masterRequirements, previousAnalysis, lastQuestion } = req.body
 
     if (!chatText || !masterRequirements) {
       return res.status(400).json({ error: 'Missing required fields' })
@@ -38,12 +38,26 @@ export default async function handler(req, res) {
       return `- "${r.label}"${detail}`
     }).join('\n')
 
+    // Build last question context for mapping numbered supplier responses
+    let lastQuestionContext = ''
+    if (lastQuestion && (lastQuestion.english || lastQuestion.chinese)) {
+      lastQuestionContext =
+        '\n\n=== LAST QUESTION WE SENT TO SUPPLIER (for mapping responses) ===\n' +
+        'The previous question sent to the supplier was:\n' +
+        (lastQuestion.english ? `ENGLISH: ${lastQuestion.english}\n` : '') +
+        (lastQuestion.chinese ? `CHINESE: ${lastQuestion.chinese}\n` : '') +
+        'CRITICAL: If the supplier responds with numbered/lettered answers (like "1: yes  2: ABS plastic  3: 20 days"),\n' +
+        'map each answer to the corresponding numbered item in the last question above.\n' +
+        'Use this mapping to correctly update requirement statuses.'
+    }
+
     const prompt =
       'You are a strict sourcing auditor. Analyze supplier chat against requirements.\n' +
       'Use AI JUDGMENT to understand meaning, context, and semantics - not string matching.\n\n' +
       '=== MASTER REQUIREMENTS ===\n' +
       requirementsList +
       previousContext +
+      lastQuestionContext +
       '\n\n=== SUPPLIER CHAT ===\n' +
       chatText +
       '\n\n=== HOW TO ANALYZE ===\n' +
@@ -91,13 +105,39 @@ export default async function handler(req, res) {
       '• PARTIAL can upgrade to CONFIRMED with new info\n' +
       '• Write fresh evidence for each requirement\n\n' +
 
-      '=== FOLLOW-UP QUESTION ===\n' +
+      '=== WHEN SUPPLIER ASKS US A QUESTION ===\n' +
+      'If the supplier\'s message contains questions directed at us (like "How many do you need?",\n' +
+      '"What quantity?", "几件?", "需要多少?", "数量是多少?" etc.):\n' +
+      '• Find the answer in the requirements list (e.g., MOQ requirement tells our needed quantity)\n' +
+      '• Prepend the answer at the START of next_question_english and next_question_chinese\n' +
+      '• Format: "We need X units. [Then ask all remaining grey/orange requirements as normal]"\n' +
+      '• Chinese format: "我们需要X件。[然后正常问所有灰色/橙色需求]"\n\n' +
+
+      '=== HIGHER MOQ RULE ===\n' +
+      'If the supplier states or implies their MOQ is HIGHER than the MOQ listed in requirements:\n' +
+      '• Mark the MOQ requirement as CONFLICT 🔴\n' +
+      '• The follow-up question MUST include:\n' +
+      '  - Ask if it is possible to order at our required (lower) MOQ\n' +
+      '  - Ask what the price per unit would be at that lower MOQ\n' +
+      '• Bundle these with ALL other missing/partial requirements in one question\n\n' +
+
+      '=== ORANGE BALL (PARTIAL) RESOLUTION ===\n' +
+      'For each PARTIAL (orange) requirement, determine EXACTLY what specific info is still missing\n' +
+      'and ask for ONLY that specific missing detail:\n' +
+      '  • Price given but no lead time → ask specifically for lead time\n' +
+      '  • Photos promised but not sent → ask to send photos now\n' +
+      '  • Partial specification given → ask for the remaining specific detail\n' +
+      'ALWAYS include ALL partial requirement follow-ups bundled in the one question.\n\n' +
+
+      '=== FOLLOW-UP QUESTION (CRITICAL RULES) ===\n' +
       'Write ONE question in English bundling ALL missing/partial items:\n' +
-      '• CRITICAL: Always ask about MOQ (Minimum Order Quantity) if not yet confirmed\n' +
-      '• Ask about EVERY MISSING requirement\n' +
-      '• Ask ONLY for missing details of PARTIAL requirements\n' +
+      '• ALWAYS include ALL MISSING (grey) requirements - ask every single one\n' +
+      '• ALWAYS include ALL PARTIAL (orange) requirements - ask for the specific missing detail\n' +
+      '• ALWAYS ask about price if not yet confirmed\n' +
       '• Do NOT ask about confirmed or conflict items\n' +
       '• 3+ items → numbered list: "Can you confirm the following: 1. ... 2. ... 3. ..."\n' +
+      '• If supplier asked us a question → answer it FIRST, then ask our questions\n' +
+      '• If supplier MOQ > our required MOQ → ask about lower MOQ possibility + price at lower MOQ\n' +
       'Then translate it to Chinese EXACTLY - the Chinese version must be a precise translation of the English one.\n\n' +
 
       '=== MANDATORY: RETURN ALL REQUIREMENTS ===\n' +

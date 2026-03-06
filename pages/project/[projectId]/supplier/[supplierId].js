@@ -20,6 +20,7 @@ export default function SupplierAuditPage() {
   const [suppliers, setSuppliers] = useState([])
   const [manualOverrides, setManualOverrides] = useState({})
   const [openStatusMenu, setOpenStatusMenu] = useState(null)
+  const [lastQuestion, setLastQuestion] = useState({ english: '', chinese: '' })
 
   useEffect(() => {
     if (router.query.projectId && router.query.supplierId) {
@@ -244,6 +245,14 @@ export default function SupplierAuditPage() {
           })
         }
         setCumulativeAnalysis(cumulativeBase)
+
+        // Initialize lastQuestion from the most recent chat that has one
+        if (cumulativeBase.next_question_english || cumulativeBase.next_question_chinese) {
+          setLastQuestion({
+            english: cumulativeBase.next_question_english || '',
+            chinese: cumulativeBase.next_question_chinese || ''
+          })
+        }
       } else {
         setCumulativeAnalysis(null)
       }
@@ -267,7 +276,7 @@ export default function SupplierAuditPage() {
 
     setAnalyzing(true)
     try {
-      const result = await analyzeChat(chatText, requirements, cumulativeAnalysis)
+      const result = await analyzeChat(chatText, requirements, cumulativeAnalysis, lastQuestion.english || lastQuestion.chinese ? lastQuestion : null)
       setAnalysis(result)
 
       // Save chat with explicit supplierId check
@@ -294,6 +303,14 @@ export default function SupplierAuditPage() {
         )
       }
       setCumulativeAnalysis(cumulative)
+
+      // Store this question as the last question for the next analysis round
+      if (result.next_question_english || result.next_question_chinese) {
+        setLastQuestion({
+          english: result.next_question_english || '',
+          chinese: result.next_question_chinese || ''
+        })
+      }
 
       setChatText('')
     } catch (error) {
