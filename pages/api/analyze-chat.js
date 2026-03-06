@@ -122,7 +122,10 @@ export default async function handler(req, res) {
       'RULE 5: PRICE RECOGNITION\n' +
       '  • Any mention of 元/块/人民币/RMB/¥ + number = price info\n' +
       '  • Price given but no lead time → price & lead time = PARTIAL 🟠\n' +
-      '  • Both price AND lead time given → CONFIRMED ✅\n\n' +
+      '  • Both price AND lead time given → CONFIRMED ✅\n' +
+      '  • CUMULATIVE CASE: If previous analysis shows "price & lead time" as PARTIAL because\n' +
+      '    price was already provided but lead time was missing, AND the NEW chat now provides\n' +
+      '    the lead time → CONFIRMED ✅ (you do NOT need to see the price again in the new chat)\n\n' +
 
       '=== RULES ===\n' +
       '• CONFIRMED from previous chats is LOCKED — never change, never re-ask\n' +
