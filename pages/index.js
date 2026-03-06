@@ -35,7 +35,7 @@ export default function Home() {
   }
 
   const handleDeleteProject = async (projectId) => {
-    if (!confirm('Weet je zeker? Dit delete project + alle suppliers + chats.')) return
+    if (!confirm('Are you sure? This will delete the project + all suppliers + chats.')) return
 
     try {
       // Delete all suppliers + their chats
@@ -219,7 +219,7 @@ export default function Home() {
               min="1"
               className="w-full px-4 py-3 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold"
             />
-            <p className="text-sm text-red-600 -mt-3">⚠️ Verplicht - AI moet MOQ kennen voor correcte vragen</p>
+            <p className="text-sm text-red-600 -mt-3">⚠️ Required - AI must know MOQ to generate correct follow-up questions</p>
 
             {/* Specifications Input */}
             <textarea

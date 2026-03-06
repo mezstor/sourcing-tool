@@ -55,7 +55,6 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
                     <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
                       <a className="block cursor-pointer hover:underline">
                         <p className="font-semibold text-gray-900">{supplier.nickname}</p>
-                        <p className="text-xs text-gray-500 truncate" title={supplier.url}>{supplier.url}</p>
                       </a>
                     </Link>
                   </td>
@@ -83,6 +82,11 @@ export default function SupplierMatrix({ suppliers, requirements, projectId, onD
                   })}
                   <td className="text-center py-4 px-4 sticky right-0 bg-inherit group-hover:bg-gray-50 z-10">
                     <div className="flex items-center justify-center gap-2">
+                      <Link href={`/project/${projectId}/supplier/${supplier.id}`}>
+                        <a className="text-indigo-600 hover:text-indigo-700 text-xs font-semibold">
+                          View
+                        </a>
+                      </Link>
                       {onDeleteSupplier && (
                         <button
                           onClick={() => onDeleteSupplier(supplier.id)}
