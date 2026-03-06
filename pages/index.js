@@ -185,56 +185,79 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6 md:p-8">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl font-bold text-gray-900 mb-2">
-            Sourcing Intelligence War Room
+        <div className="mb-16 animate-fade-in">
+          <div className="mb-4">
+            <div className="inline-block px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold mb-4">
+              ✨ Sourcing Intelligence Platform
+            </div>
+          </div>
+          <h1 className="text-6xl md:text-7xl font-bold text-slate-900 mb-3 leading-tight">
+            Supplier Management
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">
+              Reimagined
+            </span>
           </h1>
-          <p className="text-xl text-gray-600">
-            Manage your 1688.com suppliers with AI-powered auditing
+          <p className="text-xl md:text-2xl text-slate-600 max-w-2xl leading-relaxed">
+            AI-powered supplier auditing and management for 1688.com with intelligent requirements tracking
           </p>
         </div>
 
         {/* Create Project Form */}
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
-          <div className="space-y-4">
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-card p-8 mb-16 border border-white/20 animate-slide-up">
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-slate-900">Create New Project</h2>
+            <p className="text-slate-600 mt-2">Set up a new supplier management project with AI-powered insights</p>
+          </div>
+          <div className="space-y-5">
             {/* Project Name Input */}
-            <input
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="e.g., Black Jiggler with logo"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Project Name</label>
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="e.g., Black Jiggler with logo"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
+              />
+            </div>
 
             {/* MOQ Input - MANDATORY */}
-            <input
-              type="number"
-              value={moq}
-              onChange={(e) => setMoq(e.target.value)}
-              placeholder="Minimum Order Quantity (e.g., 250)"
-              min="1"
-              className="w-full px-4 py-3 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 font-semibold"
-            />
-            <p className="text-sm text-red-600 -mt-3">⚠️ Required - AI must know MOQ to generate correct follow-up questions</p>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="block text-sm font-semibold text-slate-700">Minimum Order Quantity</label>
+                <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">Required</span>
+              </div>
+              <input
+                type="number"
+                value={moq}
+                onChange={(e) => setMoq(e.target.value)}
+                placeholder="e.g., 250"
+                min="1"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors"
+              />
+              <p className="text-xs text-slate-600 mt-2">⚠️ AI needs this to generate accurate follow-up questions</p>
+            </div>
 
             {/* Specifications Input */}
-            <textarea
-              value={specifications}
-              onChange={(e) => setSpecifications(e.target.value)}
-              placeholder="Specifications (comma-separated). e.g., Material: stainless steel, Color: black, Size: 10cm"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 h-24 resize-none"
-            />
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Specifications</label>
+              <textarea
+                value={specifications}
+                onChange={(e) => setSpecifications(e.target.value)}
+                placeholder="e.g., Material: stainless steel, Color: black, Size: 10cm"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50/50 hover:bg-slate-50 transition-colors h-20 resize-none"
+              />
+            </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={() => handleCreateProject(false)}
                 disabled={loading || !projectName.trim()}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-soft hover:shadow-card"
               >
                 {loading ? <Loader className="animate-spin" size={20} /> : <Plus size={20} />}
                 Create
@@ -242,7 +265,7 @@ export default function Home() {
               <button
                 onClick={() => handleCreateProject(true)}
                 disabled={loading || !projectName.trim()}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-soft hover:shadow-card"
               >
                 {loading ? <Loader className="animate-spin" size={20} /> : <Zap size={20} />}
                 Create with AI
@@ -252,27 +275,35 @@ export default function Home() {
         </div>
 
         {/* Projects List */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Projects</h2>
+        <div className="animate-fade-in">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-slate-900">Your Projects</h2>
+            <p className="text-slate-600 mt-2">Manage your active sourcing projects</p>
+          </div>
           {projects.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <p className="text-gray-600">No projects yet. Create one to get started!</p>
+            <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/20 p-12 text-center">
+              <div className="mb-4 text-4xl">📦</div>
+              <p className="text-slate-600 text-lg">No projects yet. Create one above to get started!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
-                <div key={project.id} className="relative group bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden">
+                <div key={project.id} className="relative group">
                   <Link href={`/project/${project.id}`}>
-                    <a className="block p-6 cursor-pointer">
-                      <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Created: {new Date(project.created_at).toLocaleDateString()}
+                    <a className="block bg-white/70 backdrop-blur-xl rounded-xl shadow-soft hover:shadow-hover border border-white/20 hover:border-white/40 p-6 cursor-pointer transition-all">
+                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{project.name}</h3>
+                      <p className="text-sm text-slate-600 mt-3">
+                        📅 {new Date(project.created_at).toLocaleDateString()}
                       </p>
+                      <div className="mt-4 pt-4 border-t border-slate-200/50 flex items-center gap-2 text-blue-600 group-hover:gap-3 transition-all">
+                        <span className="text-sm font-semibold">View Project</span>
+                        <span>→</span>
+                      </div>
                     </a>
                   </Link>
                   <button
                     onClick={() => handleDeleteProject(project.id)}
-                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition"
+                    className="absolute top-3 right-3 bg-red-500/20 hover:bg-red-500 text-red-600 hover:text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur"
                     title="Delete project"
                   >
                     <Trash2 size={16} />
