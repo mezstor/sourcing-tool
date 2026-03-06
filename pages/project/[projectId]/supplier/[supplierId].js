@@ -163,8 +163,9 @@ export default function SupplierAuditPage() {
       supplier_notes: ''
     }
 
-    // Get next_question from the last chat that has one
-    for (let i = allChats.length - 1; i >= 0; i--) {
+    // Get next_question from the MOST RECENT chat that has one
+    // (chats array is sorted newest-first, so index 0 is the latest)
+    for (let i = 0; i < allChats.length; i++) {
       if (allChats[i].ai_analysis?.next_question_chinese) {
         cumulative.next_question_chinese = allChats[i].ai_analysis.next_question_chinese
         cumulative.next_question_english = allChats[i].ai_analysis.next_question_english || ''

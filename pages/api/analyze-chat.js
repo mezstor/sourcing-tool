@@ -113,32 +113,36 @@ export default async function handler(req, res) {
       '• Format: "We need X units. [Then ask all remaining grey/orange requirements as normal]"\n' +
       '• Chinese format: "我们需要X件。[然后正常问所有灰色/橙色需求]"\n\n' +
 
-      '=== HIGHER MOQ RULE ===\n' +
-      'If the supplier states or implies their MOQ is HIGHER than the MOQ listed in requirements:\n' +
+      '=== HIGHER MOQ RULE (ONE-TIME ONLY) ===\n' +
+      'If the supplier states their MOQ is HIGHER than the MOQ listed in requirements:\n' +
       '• Mark the MOQ requirement as CONFLICT 🔴\n' +
-      '• The follow-up question MUST include:\n' +
-      '  - Ask if it is possible to order at our required (lower) MOQ\n' +
-      '  - Ask what the price per unit would be at that lower MOQ\n' +
-      '• Bundle these with ALL other missing/partial requirements in one question\n\n' +
+      '• Check the LAST QUESTION WE SENT (see context above):\n' +
+      '  - If the lastQuestion did NOT already ask about ordering at our lower MOQ → ask it NOW:\n' +
+      '    "Is it possible to order [our required MOQ] units? If yes, what would the price per unit be at that quantity?"\n' +
+      '  - If the lastQuestion ALREADY asked about lower MOQ → do NOT ask again. MOQ is done.\n' +
+      '• Bundle this with ALL other missing/partial requirements in one question.\n\n' +
 
       '=== ORANGE BALL (PARTIAL) RESOLUTION ===\n' +
-      'For each PARTIAL (orange) requirement, determine EXACTLY what specific info is still missing\n' +
-      'and ask for ONLY that specific missing detail:\n' +
+      'For each PARTIAL (orange) requirement, ask for ONLY the specific missing detail:\n' +
       '  • Price given but no lead time → ask specifically for lead time\n' +
       '  • Photos promised but not sent → ask to send photos now\n' +
       '  • Partial specification given → ask for the remaining specific detail\n' +
       'ALWAYS include ALL partial requirement follow-ups bundled in the one question.\n\n' +
 
-      '=== FOLLOW-UP QUESTION (CRITICAL RULES) ===\n' +
-      'Write ONE question in English bundling ALL missing/partial items:\n' +
-      '• ALWAYS include ALL MISSING (grey) requirements - ask every single one\n' +
-      '• ALWAYS include ALL PARTIAL (orange) requirements - ask for the specific missing detail\n' +
-      '• ALWAYS ask about price if not yet confirmed\n' +
-      '• Do NOT ask about confirmed or conflict items\n' +
-      '• 3+ items → numbered list: "Can you confirm the following: 1. ... 2. ... 3. ..."\n' +
-      '• If supplier asked us a question → answer it FIRST, then ask our questions\n' +
-      '• If supplier MOQ > our required MOQ → ask about lower MOQ possibility + price at lower MOQ\n' +
-      'Then translate it to Chinese EXACTLY - the Chinese version must be a precise translation of the English one.\n\n' +
+      '=== FOLLOW-UP QUESTION — STRICT RULES ===\n' +
+      'Write ONE question in English bundling ALL missing/partial items.\n\n' +
+      '⛔ ABSOLUTE PROHIBITION — NEVER ask about these:\n' +
+      '  • Any requirement with status CONFLICT (red) — the supplier already refused or it is incompatible\n' +
+      '  • Any requirement with status CONFIRMED (green) — already answered\n' +
+      '  • EXCEPTION: MOQ CONFLICT → ask ONCE about lower MOQ (see HIGHER MOQ RULE above)\n\n' +
+      '✅ ALWAYS include these:\n' +
+      '  • EVERY MISSING (grey) requirement — ask every single one\n' +
+      '  • EVERY PARTIAL (orange) requirement — ask for the specific missing detail\n' +
+      '  • Price if not yet confirmed\n\n' +
+      'FORMAT:\n' +
+      '  • 3+ items → numbered list: "Can you confirm the following: 1. ... 2. ... 3. ..."\n' +
+      '  • If supplier asked us a question → answer it FIRST, then ask our questions\n' +
+      'Then translate to Chinese EXACTLY — the Chinese version must be a precise translation of the English.\n\n' +
 
       '=== MANDATORY: RETURN ALL REQUIREMENTS ===\n' +
       'You MUST return a status for EVERY SINGLE requirement listed above.\n' +
